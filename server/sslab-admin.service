@@ -1,0 +1,15 @@
+[Unit]
+Description=SSLAB Admin Platform
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/sslab-admin
+ExecStart=/opt/sslab-admin/venv/bin/python main.py
+Restart=always
+RestartSec=5
+Environment=SSLAB_SECRET=sslab-production-secret-2026
+
+[Install]
+WantedBy=multi-user.target

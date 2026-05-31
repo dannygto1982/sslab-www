@@ -1,0 +1,38 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# Android build artifacts
+android/platforms/android/.gradle/
+android/platforms/android/app/build/
+android/platforms/android/build/
+android/platforms/android/CordovaLib/build/
+android/platforms/android/local.properties
+
+# Temp files
+*.png
+*.apk
+temp_extract/
+temp_original/
+temp_restore/
+temp_lift_device/
+build_temp/
+dist_package/
+backups/
+FINAL_RELEASE/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Packages (large binary wheels)
+packages_linux/
+
+# JVM crash logs
+hs_err_pid*.log

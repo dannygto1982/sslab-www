@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SSLAB 智能实验室管理系统 — 产品介绍</title>
+<style>
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif; background: #e8edf5; }
+
+.page {
+  width: 210mm;
+  min-height: 297mm;
+  background: #fff;
+  margin: 0 auto 10mm;
+  overflow: hidden;
+  position: relative;
+  page-break-after: always;
+}
+
+/* ========== PAGE 1: COVER ========== */
+.cover {
+  background: linear-gradient(145deg, #1a2a6c 0%, #2e5bcc 50%, #3a8fd1 100%);
+  min-height: 297mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0;
+}
+.cover-top-accent {
+  width: 100%;
+  height: 6px;
+  background: linear-gradient(90deg, #00e5ff, #00b8ff, #4e70ec, #a78bfa);
+}
+.cover-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30mm 18mm 20mm;
+  text-align: center;
+}
+.cover-logo-ring {
+  width: 90px; height: 90px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.12);
+  border: 2px solid rgba(255,255,255,0.3);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 18px;
+}
+.cover-logo-inner {
+  width: 64px; height: 64px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #00e5ff 0%, #4e70ec 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px;
+}
+.cover-eyebrow {
+  font-size: 11px; letter-spacing: 4px; text-transform: uppercase;
+  color: rgba(255,255,255,0.6); margin-bottom: 14px;
+}
+.cover-title {
+  font-size: 38px; font-weight: 900; color: #fff;
+  line-height: 1.2; margin-bottom: 6px;
+}
+.cover-subtitle {
+  font-size: 20px; color: rgba(255,255,255,0.75); margin-bottom: 30px;
+}
+.cover-tagline {
+  font-size: 14px; color: rgba(255,255,255,0.55);
+  line-height: 1.7; max-width: 320px; margin-bottom: 36px;
+}
+.cover-pills {
+  display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+  margin-bottom: 40px;
+}
+.cover-pill {
+  padding: 6px 18px; border-radius: 30px;
+  border: 1px solid rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 600;
+  background: rgba(255,255,255,0.08);
+}
+.cover-screenshot-preview {
+  width: 160mm;
+  border-radius: 14px;
+  border: 3px solid rgba(255,255,255,0.2);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+.cover-screenshot-preview img {
+  width: 100%; display: block;
+}
+.cover-footer {
+  background: rgba(0,0,0,0.25);
+  padding: 14px 20mm;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.cover-footer-brand { color: rgba(255,255,255,0.8); font-size: 12px; }
+.cover-footer-year { color: rgba(255,255,255,0.5); font-size: 11px; }
+
+/* ========== PAGE 2: OVERVIEW ========== */
+.page-inner { padding: 16mm 15mm; }
+.section-label {
+  font-size: 10px; letter-spacing: 3px; text-transform: uppercase;
+  color: #4e70ec; font-weight: 700; margin-bottom: 8px;
+}
+.section-title {
+  font-size: 28px; font-weight: 900; color: #1a2a6c; margin-bottom: 6px;
+}
+.section-desc {
+  font-size: 13px; color: #666; line-height: 1.7; margin-bottom: 24px;
+}
+.divider {
+  width: 48px; height: 4px;
+  background: linear-gradient(90deg, #4e70ec, #00b8ff);
+  border-radius: 2px; margin-bottom: 20px;
+}
+
+/* Feature cards row */
+.feature-cards {
+  display: flex; gap: 14px; margin-bottom: 24px;
+}
+.feature-card {
+  flex: 1; padding: 18px 14px;
+  border-radius: 14px; border: 1px solid #eef0f8;
+  background: linear-gradient(135deg, #f7f9ff 0%, #eef1fb 100%);
+  text-align: center;
+}
+.feature-card .fc-icon {
+  font-size: 28px; margin-bottom: 10px;
+}
+.feature-card .fc-title {
+  font-size: 13px; font-weight: 700; color: #1a2a6c; margin-bottom: 6px;
+}
+.feature-card .fc-desc {
+  font-size: 11px; color: #888; line-height: 1.5;
+}
+
+/* Full screenshot card */
+.screen-card {
+  border-radius: 14px;
+  border: 1px solid #e0e6f8;
+  overflow: hidden;
+  box-shadow: 0 8px 30px rgba(78,112,236,0.12);
+  margin-bottom: 18px;
+}
+.screen-card img { width: 100%; display: block; }
+.screen-caption {
+  background: #f7f9ff; padding: 12px 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+.screen-caption-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #4e70ec; flex-shrink: 0;
+}
+.screen-caption-text {
+  font-size: 12px; color: #555; line-height: 1.5; flex: 1;
+}
+.screen-caption-badge {
+  background: #4e70ec; color: #fff;
+  font-size: 10px; padding: 3px 10px; border-radius: 20px; white-space: nowrap;
+}
+
+/* Two-column layout */
+.two-col { display: flex; gap: 16px; align-items: flex-start; }
+.two-col-left { flex: 3; }
+.two-col-right { flex: 2; }
+
+/* Highlight box */
+.highlight-box {
+  background: linear-gradient(135deg, #4e70ec 0%, #2e5bcc 100%);
+  border-radius: 14px; padding: 20px 18px; color: #fff; margin-bottom: 16px;
+}
+.highlight-box h3 { font-size: 16px; margin-bottom: 8px; }
+.highlight-box p { font-size: 12px; opacity: 0.85; line-height: 1.65; }
+
+/* Bullet list */
+.bullet-list { list-style: none; padding: 0; }
+.bullet-list li {
+  padding: 8px 0 8px 20px; border-bottom: 1px solid #f0f0f0;
+  font-size: 12px; color: #444; line-height: 1.5; position: relative;
+}
+.bullet-list li:before {
+  content: ""; position: absolute; left: 0; top: 50%;
+  transform: translateY(-50%);
+  width: 8px; height: 8px; border-radius: 50%; background: #4e70ec;
+}
+.bullet-list li strong { color: #1a2a6c; }
+
+/* ========== PAGE: FEATURE SPREAD ========== */
+.feature-header {
+  background: linear-gradient(135deg, #1a2a6c 0%, #2e5bcc 100%);
+  padding: 20px 15mm 18px;
+  position: relative; overflow: hidden;
+}
+.feature-header::after {
+  content: "";
+  position: absolute; right: -30px; top: -30px;
+  width: 160px; height: 160px; border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+}
+.feature-header::before {
+  content: "";
+  position: absolute; right: 40px; bottom: -50px;
+  width: 100px; height: 100px; border-radius: 50%;
+  background: rgba(255,255,255,0.04);
+}
+.fh-number {
+  font-size: 52px; font-weight: 900; color: rgba(255,255,255,0.12);
+  line-height: 1; margin-bottom: -8px;
+}
+.fh-label {
+  font-size: 10px; letter-spacing: 3px; color: rgba(255,255,255,0.5);
+  margin-bottom: 4px;
+}
+.fh-title { font-size: 22px; font-weight: 800; color: #fff; margin-bottom: 6px; }
+.fh-desc { font-size: 12px; color: rgba(255,255,255,0.7); line-height: 1.6; max-width: 320px; }
+
+.feature-body { padding: 14px 15mm 12mm; }
+
+/* Specs grid */
+.specs-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;
+}
+.spec-item {
+  background: #f7f9ff; border-radius: 10px; padding: 14px;
+  border: 1px solid #e8edf8;
+}
+.spec-item .si-label { font-size: 10px; color: #888; margin-bottom: 4px; }
+.spec-item .si-value { font-size: 15px; font-weight: 700; color: #1a2a6c; }
+
+/* ========== PAGE 5: LAST PAGE ========== */
+.back-cover {
+  background: linear-gradient(145deg, #1a2a6c 0%, #2e5bcc 60%, #4e70ec 100%);
+  min-height: 297mm;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  text-align: center; padding: 20mm;
+  position: relative; overflow: hidden;
+}
+.back-cover::before {
+  content: "";
+  position: absolute; left: -80px; top: -80px;
+  width: 300px; height: 300px; border-radius: 50%;
+  background: rgba(255,255,255,0.04);
+}
+.back-cover::after {
+  content: "";
+  position: absolute; right: -60px; bottom: -60px;
+  width: 250px; height: 250px; border-radius: 50%;
+  background: rgba(255,255,255,0.04);
+}
+.bc-title { font-size: 32px; font-weight: 900; color: #fff; margin-bottom: 12px; }
+.bc-desc { font-size: 14px; color: rgba(255,255,255,0.7); line-height: 1.8; margin-bottom: 36px; max-width: 280px; }
+.bc-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  width: 100%; max-width: 340px; margin-bottom: 40px;
+}
+.bc-item {
+  background: rgba(255,255,255,0.1);
+  border-radius: 14px; padding: 20px 14px;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+.bc-item-icon { font-size: 26px; margin-bottom: 8px; }
+.bc-item-title { font-size: 12px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+.bc-item-text { font-size: 10px; color: rgba(255,255,255,0.6); line-height: 1.5; }
+.bc-footer {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.2); padding: 14px 20mm;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.bc-footer span { color: rgba(255,255,255,0.5); font-size: 11px; }
+
+@media print {
+  body { background: none; }
+  .page { margin: 0; box-shadow: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ========== PAGE 1: COVER ========== -->
+<div class="page">
+  <div class="cover">
+    <div class="cover-top-accent"></div>
+    <div class="cover-body">
+      <div class="cover-logo-ring">
+        <div class="cover-logo-inner">🔬</div>
+      </div>
+      <div class="cover-eyebrow">Smart Student Laboratory System</div>
+      <div class="cover-title">SSLAB</div>
+      <div class="cover-subtitle">智能实验室管理系统</div>
+      <div class="cover-tagline">一套软件，统一管控实验室的电源、环境、设备与教学互动，让每一节实验课都高效安全。</div>
+      <div class="cover-pills">
+        <span class="cover-pill">教学电源管理</span>
+        <span class="cover-pill">实验环境监测</span>
+        <span class="cover-pill">互动答题</span>
+        <span class="cover-pill">网络设备控制</span>
+      </div>
+      <div class="cover-screenshot-preview">
+        <img src="screenshots/tab1_power.png" alt="SSLAB 主界面">
+      </div>
+    </div>
+    <div class="cover-footer">
+      <span class="cover-footer-brand">SSLAB 智能实验室管理系统</span>
+      <span class="cover-footer-year">2026 产品介绍</span>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PAGE 2: SYSTEM OVERVIEW ========== -->
+<div class="page">
+  <div class="page-inner">
+    <div class="section-label">Product Overview</div>
+    <div class="section-title">系统总览</div>
+    <div class="divider"></div>
+    <div class="section-desc">SSLAB 是专为高校实验室设计的综合管理平台，通过统一的 Web 界面，集中控制实验室内所有智能设备，大幅降低实验准备时间，提升教学安全性。</div>
+
+    <div class="feature-cards">
+      <div class="feature-card">
+        <div class="fc-icon">⚡</div>
+        <div class="fc-title">教学电源管理</div>
+        <div class="fc-desc">低压/高压/大电流多路电源实时监控与控制，学生分组独立管理</div>
+      </div>
+      <div class="feature-card">
+        <div class="fc-icon">🌡️</div>
+        <div class="fc-title">环境监测与控制</div>
+        <div class="fc-desc">温湿度、天气数据实时采集，联动供水排风、灯光与变频器</div>
+      </div>
+      <div class="feature-card">
+        <div class="fc-icon">📋</div>
+        <div class="fc-title">互动教学答题</div>
+        <div class="fc-desc">全班学生实时抢答，教师可视化统计答题结果与作答速度</div>
+      </div>
+      <div class="feature-card">
+        <div class="fc-icon">🖥️</div>
+        <div class="fc-title">升降台与电脑</div>
+        <div class="fc-desc">实验台升降与电脑电源一键控制，0-16 台设备批量管理</div>
+      </div>
+    </div>
+
+    <div class="screen-card">
+      <img src="screenshots/tab1_power.png" alt="教学电源管理界面">
+      <div class="screen-caption">
+        <div class="screen-caption-dot"></div>
+        <div class="screen-caption-text">主界面采用卡片式布局，所有功能模块一目了然；顶部标签快速切换四大功能区，右上角实时显示系统在线状态。</div>
+        <div class="screen-caption-badge">主界面</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="two-col-left">
+        <ul class="bullet-list">
+          <li><strong>全 Web 架构</strong> — 无需安装 App，浏览器直接访问</li>
+          <li><strong>实时双向通信</strong> — WebSocket 推送，状态毫秒级同步</li>
+          <li><strong>多协议兼容</strong> — Modbus RTU/TCP、自研 JSON 协议</li>
+          <li><strong>仿真测试模式</strong> — 无需接硬件即可演示全部功能</li>
+        </ul>
+      </div>
+      <div class="two-col-right">
+        <div class="highlight-box">
+          <h3>一套系统，全面覆盖</h3>
+          <p>从实验台电源到环境传感器，从学生互动到灯光控制，SSLAB 用单一界面替代多个独立操控盒。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PAGE 3: POWER MANAGEMENT ========== -->
+<div class="page">
+  <div class="feature-header">
+    <div class="fh-number">01</div>
+    <div class="fh-label">Feature Module</div>
+    <div class="fh-title">教学电源管理</div>
+    <div class="fh-desc">低压、高压、大电流三路教学电源统一管控，学生分组供电精确到每台实验台。</div>
+  </div>
+  <div class="feature-body">
+    <div class="screen-card" style="margin-top:0;">
+      <img src="screenshots/tab1_power.png" alt="教学电源界面">
+      <div class="screen-caption">
+        <div class="screen-caption-dot"></div>
+        <div class="screen-caption-text">左侧低压电源实时显示电压 / 电流；中列高压与大电流开关附带延时倒计时保护；右侧学生分组 A/B/C/D 独立控制。</div>
+        <div class="screen-caption-badge">教学电源</div>
+      </div>
+    </div>
+
+    <div class="specs-grid">
+      <div class="spec-item">
+        <div class="si-label">低压直流输出范围</div>
+        <div class="si-value">0 — 30 V / 2 A</div>
+      </div>
+      <div class="spec-item">
+        <div class="si-label">高压交流输出</div>
+        <div class="si-value">240 — 300 V</div>
+      </div>
+      <div class="spec-item">
+        <div class="si-label">学生分组数</div>
+        <div class="si-value">A / B / C / D 四组</div>
+      </div>
+      <div class="spec-item">
+        <div class="si-label">通信协议</div>
+        <div class="si-value">Modbus RTU over TCP</div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <ul class="bullet-list">
+        <li><strong>实时监测</strong> — 电压、电流数值 1 秒刷新，直观蓝字高亮显示</li>
+        <li><strong>学生电源同步</strong> — 勾选同步后，学生台电压自动跟随教师设定值</li>
+        <li><strong>延时保护</strong> — 高压与大电流开启前内置 10 s 倒计时提醒</li>
+        <li><strong>已连接状态</strong> — 绿色徽章实时标识每路电源的网络连接状态</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PAGE 4: ENVIRONMENT MANAGEMENT ========== -->
+<div class="page">
+  <div class="feature-header">
+    <div class="fh-number">02</div>
+    <div class="fh-label">Feature Module</div>
+    <div class="fh-title">实验环境管理</div>
+    <div class="fh-desc">多传感器环境监测 + 供水排风 + 灯光照明 + 变频器转速，四大子系统统一界面一屏掌控。</div>
+  </div>
+  <div class="feature-body">
+    <div class="screen-card" style="margin-top:0;">
+      <img src="screenshots/tab2_env.png" alt="实验环境界面">
+      <div class="screen-caption">
+        <div class="screen-caption-dot"></div>
+        <div class="screen-caption-text">左侧环境监测数据卡显示天气、温湿度、风速、气压及用电量；右侧四个控制卡分别管理供水/排风、升降台、灯光和变频器。</div>
+        <div class="screen-caption-badge">实验环境</div>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-top:16px;">
+      <div class="two-col-left">
+        <ul class="bullet-list">
+          <li><strong>环境监测</strong> — 温度、湿度、体感温度、能见度、气压、风速实时采集</li>
+          <li><strong>供排水控制</strong> — 实验台供水阀 / 排风扇开关一键切换</li>
+          <li><strong>灯光分区</strong> — 黑板灯与教室灯独立控制，支持定时联动</li>
+          <li><strong>升降台</strong> — 最多 16 台电动实验台升降同步控制</li>
+          <li><strong>变频器</strong> — 教学电机转速三档调节（低 / 中 / 高速）</li>
+        </ul>
+      </div>
+      <div class="two-col-right">
+        <div class="specs-grid" style="grid-template-columns:1fr; gap:10px; margin-top:0;">
+          <div class="spec-item">
+            <div class="si-label">传感器接入</div>
+            <div class="si-value">USB / 网络型</div>
+          </div>
+          <div class="spec-item">
+            <div class="si-label">控制设备数</div>
+            <div class="si-value">最多 16 台升降台</div>
+          </div>
+          <div class="spec-item">
+            <div class="si-label">继电器通道</div>
+            <div class="si-value">10 路 (USR-IO808)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PAGE 5: INTERACTIVE TEACHING ========== -->
+<div class="page">
+  <div class="feature-header">
+    <div class="fh-number">03</div>
+    <div class="fh-label">Feature Module</div>
+    <div class="fh-title">互动教学管理</div>
+    <div class="fh-desc">全班学生实时抢答，教师即时掌握正确率、最快作答者，让课堂互动数字化、可视化。</div>
+  </div>
+  <div class="feature-body">
+    <div class="screen-card" style="margin-top:0;">
+      <img src="screenshots/tab3_interact.png" alt="互动教学界面">
+      <div class="screen-caption">
+        <div class="screen-caption-dot"></div>
+        <div class="screen-caption-text">A1—D4 共 16 个学生座位答题框实时更新，正确答案绿色高亮，错误红色标注，底部汇总统计正确人数、错误人数及最快答题者。</div>
+        <div class="screen-caption-badge">互动答题</div>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-top:16px;">
+      <div class="two-col-left">
+        <ul class="bullet-list">
+          <li><strong>16 座位矩阵</strong> — A/B/C/D 组 × 4 排，覆盖主流实验室配置</li>
+          <li><strong>实时推送</strong> — 学生答题后 < 1 s 在教师端显示</li>
+          <li><strong>答题倒计时</strong> — 可配置作答时限，超时自动锁定</li>
+          <li><strong>结果统计</strong> — 自动统计正确 / 错误人数与最快答题学生</li>
+          <li><strong>空气质量联动</strong> — 同步显示甲醛 / TVOC 浓度辅助教学</li>
+        </ul>
+      </div>
+      <div class="two-col-right">
+        <div class="highlight-box">
+          <h3>📊 课堂数据一目了然</h3>
+          <p>正确 <strong style="font-size:18px;">10</strong> 人 &nbsp;错误 <strong style="font-size:18px;">2</strong> 人<br>
+          最快作答：D2 号<br><br>
+          <span style="font-size:11px;opacity:0.7;">以上为演示数据，实际结果实时更新</span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PAGE 6: BACK COVER ========== -->
+<div class="page">
+  <div class="back-cover">
+    <div style="position:relative;z-index:1;width:100%;display:flex;flex-direction:column;align-items:center;">
+      <div class="cover-logo-ring" style="margin-bottom:24px;">
+        <div class="cover-logo-inner">🔬</div>
+      </div>
+      <div class="bc-title">开始您的智能实验室之旅</div>
+      <div class="bc-desc">SSLAB 已在多所高校实验室稳定运行，一次部署即可覆盖全部教学场景。</div>
+
+      <div class="bc-grid">
+        <div class="bc-item">
+          <div class="bc-item-icon">🚀</div>
+          <div class="bc-item-title">快速部署</div>
+          <div class="bc-item-text">Python + 浏览器，无需额外安装，局域网内即可访问</div>
+        </div>
+        <div class="bc-item">
+          <div class="bc-item-icon">🔌</div>
+          <div class="bc-item-title">多协议支持</div>
+          <div class="bc-item-text">Modbus RTU/TCP、自研 JSON 协议，兼容主流工业设备</div>
+        </div>
+        <div class="bc-item">
+          <div class="bc-item-icon">📱</div>
+          <div class="bc-item-title">跨平台</div>
+          <div class="bc-item-text">PC / 平板 / 手机浏览器均可访问，支持 Android 打包</div>
+        </div>
+        <div class="bc-item">
+          <div class="bc-item-icon">🛡️</div>
+          <div class="bc-item-title">安全可靠</div>
+          <div class="bc-item-text">高压设备延时保护，仿真模式可离线演示全部功能</div>
+        </div>
+      </div>
+
+      <div style="width:100%;max-width:340px;">
+        <div class="screen-card">
+          <img src="screenshots/tab4_settings.png" alt="系统设置">
+          <div class="screen-caption" style="background:rgba(255,255,255,0.05);border-top:1px solid rgba(255,255,255,0.1);">
+            <div class="screen-caption-dot" style="background:#00e5ff;"></div>
+            <div class="screen-caption-text" style="color:rgba(255,255,255,0.7);font-size:11px;">系统设置界面 — 答题时限、自动关机及设备序列号管理</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bc-footer">
+      <span>SSLAB 智能实验室管理系统</span>
+      <span>v1.0 · 2026</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

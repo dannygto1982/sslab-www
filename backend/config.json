@@ -1,0 +1,29 @@
+{
+  "devices": [
+    {
+      "ip": "192.168.0.7",
+      "port": 8234,
+      "type": "USR-IO808",
+      "id": "Device_8234"
+    },
+    {
+      "ip": "192.168.0.211",
+      "port": 8888,
+      "type": "TeacherPower",
+      "id": "Device_8888"
+    },
+    {
+      "ip": "192.168.0.12",
+      "port": 8887,
+      "type": "SyncServer",
+      "id": "Device_8887"
+    },
+    {
+      "ip": "192.168.0.100",
+      "port": 8889,
+      "type": "EnvSensor",
+      "id": "Device_8889"
+    }
+  ],
+  "last_scan": "manual_fix"
+}

@@ -1,0 +1,87 @@
+/* Minimal CSS to restore layout if original mock is missing */
+body {
+    background-color: #f5f5f5;
+    font-family: "Microsoft YaHei", sans-serif;
+}
+.center-box {
+    width: 1200px;
+    margin: 20px auto;
+    background: #fff;
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+.left-box {
+    width: 300px;
+    border: 1px solid #ddd;
+    margin: 10px;
+    padding: 10px;
+    background: #fafafa;
+}
+.box-title {
+    font-size: 16px;
+    font-weight: bold;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+}
+.left-box-c {
+    margin-bottom: 10px;
+    line-height: 30px;
+}
+.left-box-txt {
+    font-size: 14px;
+    color: #333;
+}
+.switch {
+    display: inline-block;
+    width: 60px;
+    height: 30px;
+    background: #ddd;
+    border-radius: 15px;
+    position: relative;
+    cursor: pointer;
+}
+.switch.active {
+    background: #4cd964;
+}
+.switch input { 
+    display: none; 
+}
+.switch span {
+    display: none; 
+    color: #fff; 
+    margin-left: 5px;
+}
+.switch.active span {
+    display: inline;
+}
+.switch font {
+    display: inline;
+    color: #666;
+    margin-right: 5px;
+    float: right;
+}
+.switch.active font {
+    display: none;
+}
+.dy-input {
+    width: 60px;
+    display: inline-block;
+    height: 30px;
+}
+.tab-content {
+    border: 1px solid #ddd;
+    border-top: none;
+    padding: 20px;
+}
+.nav-tabs {
+    border-bottom: 1px solid #ddd;
+}
+.clearfix:after {
+    content: ".";
+    display: block;
+    height: 0;
+    clear: both;
+    visibility: hidden;
+}
+.blue { color: blue; }

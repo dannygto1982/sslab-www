@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SSLAB 管理平台</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔧</text></svg>">
+<link href="https://cdn.jsdelivr.net/npm/element-plus@2.5.6/dist/index.css" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; }
+
+.login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.login-card { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.15); width: 380px; }
+.login-card h2 { text-align: center; margin-bottom: 30px; color: #333; }
+
+.layout { display: flex; min-height: 100vh; }
+.sidebar { width: 220px; background: #001529; color: #fff; padding-top: 20px; flex-shrink: 0; }
+.sidebar h3 { text-align: center; padding: 10px 0 25px; font-size: 18px; color: #1890ff; border-bottom: 1px solid #0d2137; margin-bottom: 8px; }
+.sidebar .menu-item { padding: 14px 24px; cursor: pointer; transition: all .2s; font-size: 14px; color: #ffffffb3; display: flex; align-items: center; gap: 10px; }
+.sidebar .menu-item:hover { color: #fff; background: #0d2137; }
+.sidebar .menu-item.active { background: #1890ff; color: #fff; }
+.sidebar .menu-item .icon { font-size: 18px; }
+
+.main-content { flex: 1; padding: 24px; overflow-y: auto; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.page-header h2 { font-size: 22px; color: #333; }
+
+.stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+.stat-card .label { font-size: 14px; color: #999; margin-bottom: 8px; }
+.stat-card .value { font-size: 32px; font-weight: 700; }
+.stat-card.blue .value { color: #1890ff; }
+.stat-card.green .value { color: #52c41a; }
+.stat-card.orange .value { color: #fa8c16; }
+.stat-card.purple .value { color: #722ed1; }
+
+.card { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.06); padding: 20px; margin-bottom: 16px; }
+.card-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+th { background: #fafafa; font-weight: 600; color: #333; }
+tr:hover { background: #f5f7fa; }
+
+.badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 12px; font-weight: 500; }
+.badge.online { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+.badge.offline { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffa39e; }
+.badge.pending { background: #fffbe6; color: #faad14; border: 1px solid #ffe58f; }
+.badge.done { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+.badge.downloading { background: #e6f7ff; color: #1890ff; border: 1px solid #91d5ff; }
+.badge.installed { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+.badge.failed { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffa39e; }
+.badge.outdated { background: #fff7e6; color: #fa8c16; border: 1px solid #ffd591; }
+
+.btn { padding: 6px 16px; border-radius: 4px; border: 1px solid #d9d9d9; background: #fff; cursor: pointer; font-size: 13px; transition: all .2s; }
+.btn:hover { border-color: #1890ff; color: #1890ff; }
+.btn-primary { background: #1890ff; color: #fff; border-color: #1890ff; }
+.btn-primary:hover { background: #40a9ff; }
+.btn-danger { color: #ff4d4f; border-color: #ff4d4f; }
+.btn-danger:hover { background: #ff4d4f; color: #fff; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+.form-row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.form-row label { font-size: 14px; color: #666; min-width: 80px; }
+.form-row input, .form-row select, .form-row textarea { padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; flex: 1; min-width: 200px; }
+.form-row textarea { min-height: 80px; resize: vertical; }
+.form-row input:focus, .form-row select:focus, .form-row textarea:focus { border-color: #1890ff; outline: none; box-shadow: 0 0 0 2px rgba(24,144,255,.1); }
+
+.log-viewer { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 6px; font-family: 'Consolas', 'Monaco', monospace; font-size: 13px; max-height: 500px; overflow-y: auto; line-height: 1.6; }
+.log-viewer .log-line { white-space: pre-wrap; word-break: break-all; }
+.log-viewer .log-info { color: #4fc1ff; }
+.log-viewer .log-warn { color: #e5c07b; }
+.log-viewer .log-error { color: #f44747; }
+.log-viewer .log-debug { color: #808080; }
+.log-viewer .log-ts { color: #6a9955; }
+
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.45); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+.modal { background: #fff; border-radius: 8px; padding: 24px; min-width: 500px; max-width: 700px; max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,.15); }
+.modal h3 { margin-bottom: 20px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+.empty { text-align: center; padding: 40px; color: #999; font-size: 14px; }
+.topbar { display: flex; justify-content: flex-end; padding: 12px 24px; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.06); margin-bottom: 0; }
+.topbar .user-info { font-size: 14px; color: #666; cursor: pointer; }
+
+.device-state-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 12px; }
+.state-item { padding: 8px 12px; background: #fafafa; border-radius: 4px; font-size: 13px; }
+.state-item .key { color: #999; font-size: 12px; }
+.state-item .val { font-weight: 600; color: #333; }
+</style>
+</head>
+<body>
+<div id="app">
+<!-- Login -->
+<div v-if="!token" class="login-container">
+  <div class="login-card">
+    <h2>🔧 SSLAB 管理平台</h2>
+    <div class="form-row"><label>用户名</label><input v-model="loginForm.username" placeholder="admin" @keyup.enter="doLogin"></div>
+    <div class="form-row"><label>密码</label><input v-model="loginForm.password" type="password" placeholder="密码" @keyup.enter="doLogin"></div>
+    <div style="text-align:center;margin-top:20px">
+      <button class="btn btn-primary" style="width:100%;padding:10px" @click="doLogin">登 录</button>
+    </div>
+    <p v-if="loginError" style="color:#ff4d4f;text-align:center;margin-top:12px;font-size:13px">{{loginError}}</p>
+  </div>
+</div>
+
+<!-- Main Layout -->
+<div v-else class="layout">
+  <div class="sidebar">
+    <h3>SSLAB Admin</h3>
+    <div class="menu-item" :class="{active:page==='dashboard'}" @click="page='dashboard'"><span class="icon">📊</span>仪表盘</div>
+    <div class="menu-item" :class="{active:page==='firmware'}" @click="page='firmware';loadFirmware()"><span class="icon">📦</span>固件管理</div>
+    <div class="menu-item" :class="{active:page==='terminals'}" @click="page='terminals';loadTerminals()"><span class="icon">📱</span>终端管理</div>
+    <div class="menu-item" :class="{active:page==='commands'}" @click="page='commands';loadCommands()"><span class="icon">⚡</span>命令测试</div>
+    <div class="menu-item" :class="{active:page==='logs'}" @click="page='logs';loadLogs()"><span class="icon">📋</span>日志查看</div>
+    <div class="menu-item" :class="{active:page==='updates'}" @click="page='updates';loadUpdateHistory()"><span class="icon">🔄</span>更新历史</div>
+    <div class="menu-item" style="position:absolute;bottom:20px;width:220px" @click="logout"><span class="icon">🚪</span>退出登录</div>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column">
+    <div class="topbar">
+      <span class="user-info">👤 admin | <a href="#" @click.prevent="logout" style="color:#1890ff">退出</a></span>
+    </div>
+    <div class="main-content">
+
+      <!-- Dashboard -->
+      <div v-if="page==='dashboard'">
+        <div class="page-header"><h2>仪表盘</h2><button class="btn" @click="loadAll">🔄 刷新</button></div>
+        <div class="stat-cards">
+          <div class="stat-card blue"><div class="label">终端总数</div><div class="value">{{stats.total_terminals||0}}</div></div>
+          <div class="stat-card green"><div class="label">在线终端</div><div class="value">{{stats.online_terminals||0}}</div></div>
+          <div class="stat-card orange"><div class="label">固件版本数</div><div class="value">{{stats.total_firmware||0}}</div></div>
+          <div class="stat-card purple"><div class="label">最新版本</div><div class="value" style="font-size:20px">{{stats.latest_firmware?stats.latest_firmware.version_name:'无'}}</div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">终端状态概览</div>
+          <table v-if="terminals.length">
+            <tr><th>设备ID</th><th>名称</th><th>版本</th><th>IP</th><th>状态</th><th>最后心跳</th></tr>
+            <tr v-for="t in terminals" :key="t.device_id">
+              <td>{{t.device_id}}</td><td>{{t.device_name||'-'}}</td><td>{{t.app_version||'-'}}</td>
+              <td>{{t.ip_address||'-'}}</td>
+              <td><span class="badge" :class="t.online?'online':'offline'">{{t.online?'在线':'离线'}}</span></td>
+              <td>{{formatTime(t.last_heartbeat)}}</td>
+            </tr>
+          </table>
+          <div v-else class="empty">暂无终端数据</div>
+        </div>
+      </div>
+
+      <!-- Firmware -->
+      <div v-if="page==='firmware'">
+        <div class="page-header"><h2>固件管理</h2><button class="btn btn-primary" @click="showUploadModal=true">📤 上传固件</button></div>
+        <div class="card">
+          <table v-if="firmwareList.length">
+            <tr><th>ID</th><th>版本号</th><th>版本名</th><th>大小</th><th>更新说明</th><th>上传时间</th><th>状态</th><th>操作</th></tr>
+            <tr v-for="fw in firmwareList" :key="fw.id">
+              <td>{{fw.id}}</td><td>{{fw.version_code}}</td><td>{{fw.version_name}}</td>
+              <td>{{formatSize(fw.file_size)}}</td><td>{{fw.changelog||'-'}}</td>
+              <td>{{formatTime(fw.upload_time)}}</td>
+              <td><span class="badge" :class="fw.is_active?'online':'offline'">{{fw.is_active?'激活':'停用'}}</span></td>
+              <td>
+                <button class="btn btn-sm" @click="toggleFw(fw)">{{fw.is_active?'停用':'激活'}}</button>
+                <button class="btn btn-sm btn-primary" v-if="fw.is_active" @click="openPushModal(fw)">推送更新</button>
+                <button class="btn btn-sm" @click="downloadFw(fw)">下载</button>
+                <button class="btn btn-sm btn-danger" @click="deleteFw(fw)">删除</button>
+              </td>
+            </tr>
+          </table>
+          <div v-else class="empty">暂无固件，点击上方"上传固件"添加</div>
+        </div>
+
+        <!-- Upload Modal -->
+        <div v-if="showUploadModal" class="modal-overlay" @click.self="showUploadModal=false">
+          <div class="modal">
+            <h3>上传固件</h3>
+            <div class="form-row"><label>APK文件</label><input type="file" accept=".apk" @change="uploadFile=$event.target.files[0]"></div>
+            <div class="form-row"><label>版本号</label><input v-model.number="uploadForm.version_code" type="number" placeholder="如 10003"></div>
+            <div class="form-row"><label>版本名</label><input v-model="uploadForm.version_name" placeholder="如 1.0.3"></div>
+            <div class="form-row"><label>更新说明</label><textarea v-model="uploadForm.changelog" placeholder="本次更新内容..."></textarea></div>
+            <div class="modal-actions">
+              <button class="btn" @click="showUploadModal=false">取消</button>
+              <button class="btn btn-primary" @click="doUpload" :disabled="uploading">{{uploading?'上传中...':'确认上传'}}</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Push Update Modal -->
+        <div v-if="showPushModal" class="modal-overlay" @click.self="showPushModal=false">
+          <div class="modal" style="max-width:600px">
+            <h3>📤 推送固件更新</h3>
+            <p style="margin-bottom:12px;color:#666;font-size:13px">目标固件: <b>v{{pushTarget.version_name}}</b> ({{pushTarget.version_code}})</p>
+            <div style="margin-bottom:12px">
+              <label style="font-size:14px;font-weight:600">选择目标终端:</label>
+              <div style="margin-top:8px;display:flex;gap:8px;margin-bottom:8px">
+                <button class="btn btn-sm" @click="pushSelectAll">全选</button>
+                <button class="btn btn-sm" @click="pushSelectOutdated">选择待更新</button>
+                <button class="btn btn-sm" @click="pushSelectedDevices=[]">清空</button>
+              </div>
+              <div style="max-height:300px;overflow-y:auto;border:1px solid #f0f0f0;border-radius:4px">
+                <div v-for="t in terminals" :key="t.device_id" style="padding:8px 12px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:10px">
+                  <input type="checkbox" :value="t.device_id" v-model="pushSelectedDevices">
+                  <span>{{t.device_name||t.device_id}}</span>
+                  <span class="badge" :class="t.online?'online':'offline'" style="font-size:11px">{{t.online?'在线':'离线'}}</span>
+                  <span style="margin-left:auto;font-size:12px;color:#999">v{{t.version_code}}</span>
+                  <span v-if="t.version_code < pushTarget.version_code" class="badge outdated" style="font-size:11px">待更新</span>
+                  <span v-else class="badge online" style="font-size:11px">已最新</span>
+                </div>
+              </div>
+            </div>
+            <div class="modal-actions">
+              <button class="btn" @click="showPushModal=false">取消</button>
+              <button class="btn btn-primary" @click="doPushUpdate" :disabled="!pushSelectedDevices.length||pushing">{{pushing?'推送中...':'确认推送 ('+pushSelectedDevices.length+')'}}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Terminals -->
+      <div v-if="page==='terminals'">
+        <div class="page-header"><h2>终端管理</h2><button class="btn" @click="loadTerminals">🔄 刷新</button></div>
+        <div class="card" v-for="t in terminals" :key="t.device_id" style="cursor:pointer" @click="showTerminalDetail(t)">
+          <div class="card-title">
+            <span>📱 {{t.device_name||t.device_id}} <span class="badge" :class="t.online?'online':'offline'" style="margin-left:8px">{{t.online?'在线':'离线'}}</span></span>
+            <span style="font-size:13px;color:#999">{{t.ip_address}}</span>
+          </div>
+          <div style="font-size:13px;color:#666;display:flex;gap:24px;flex-wrap:wrap">
+            <span>设备ID: {{t.device_id}}</span>
+            <span>版本: {{t.app_version}} ({{t.version_code}})
+              <span v-if="latestFirmware && t.version_code < latestFirmware.version_code" class="badge outdated" style="margin-left:4px;font-size:11px">有新版本 v{{latestFirmware.version_name}}</span>
+              <span v-else-if="latestFirmware" class="badge online" style="margin-left:4px;font-size:11px">已最新</span>
+            </span>
+            <span>最后心跳: {{formatTime(t.last_heartbeat)}}</span>
+          </div>
+          <div v-if="t.current_state && Object.keys(t.current_state).length" class="device-state-grid">
+            <div class="state-item" v-for="(v,k) in t.current_state" :key="k"><div class="key">{{k}}</div><div class="val">{{v}}</div></div>
+          </div>
+        </div>
+        <div v-if="!terminals.length" class="card empty">暂无终端上报</div>
+
+        <!-- Terminal Detail Modal -->
+        <div v-if="selectedTerminal" class="modal-overlay" @click.self="selectedTerminal=null">
+          <div class="modal" style="max-width:800px">
+            <h3>📱 {{selectedTerminal.device_name||selectedTerminal.device_id}} 详情</h3>
+            <table>
+              <tr><th style="width:120px">设备ID</th><td>{{selectedTerminal.device_id}}</td></tr>
+              <tr><th>设备名称</th><td>{{selectedTerminal.device_name||'-'}}</td></tr>
+              <tr><th>APP版本</th><td>{{selectedTerminal.app_version}} ({{selectedTerminal.version_code}})</td></tr>
+              <tr><th>IP地址</th><td>{{selectedTerminal.ip_address}}</td></tr>
+              <tr><th>状态</th><td><span class="badge" :class="selectedTerminal.online?'online':'offline'">{{selectedTerminal.online?'在线':'离线'}}</span></td></tr>
+              <tr><th>最后心跳</th><td>{{formatTime(selectedTerminal.last_heartbeat)}}</td></tr>
+              <tr><th>注册时间</th><td>{{formatTime(selectedTerminal.created_at)}}</td></tr>
+            </table>
+            <div v-if="selectedTerminal.device_info && Object.keys(selectedTerminal.device_info).length" style="margin-top:16px">
+              <div style="font-weight:600;margin-bottom:8px">设备信息</div>
+              <pre style="background:#f5f5f5;padding:12px;border-radius:4px;font-size:13px;overflow-x:auto">{{JSON.stringify(selectedTerminal.device_info,null,2)}}</pre>
+            </div>
+            <div v-if="selectedTerminal.current_state && Object.keys(selectedTerminal.current_state).length" style="margin-top:16px">
+              <div style="font-weight:600;margin-bottom:8px">当前状态</div>
+              <div class="device-state-grid">
+                <div class="state-item" v-for="(v,k) in selectedTerminal.current_state" :key="k"><div class="key">{{k}}</div><div class="val">{{v}}</div></div>
+              </div>
+            </div>
+            <div class="modal-actions">
+              <button class="btn btn-primary" @click="quickSendCmd(selectedTerminal.device_id)">发送命令</button>
+              <button class="btn btn-primary" v-if="latestFirmware && selectedTerminal.version_code < latestFirmware.version_code" @click="pushSingleTerminal(selectedTerminal)">⬆ 推送更新</button>
+              <button class="btn" @click="viewTerminalLogs(selectedTerminal.device_id)">查看日志</button>
+              <button class="btn" @click="selectedTerminal=null">关闭</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Commands -->
+      <div v-if="page==='commands'">
+        <div class="page-header"><h2>命令测试</h2></div>
+        <div class="card">
+          <div class="card-title">发送TCP命令</div>
+          <div class="form-row">
+            <label>目标终端</label>
+            <select v-model="cmdForm.device_id">
+              <option value="">-- 选择终端 --</option>
+              <option v-for="t in terminals" :key="t.device_id" :value="t.device_id">{{t.device_name||t.device_id}} ({{t.online?'在线':'离线'}})</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>命令类型</label>
+            <select v-model="cmdForm.command_type">
+              <option value="tcp_send">TCP发送</option>
+              <option value="modbus_8234">Modbus (8234)</option>
+              <option value="modbus_8888">Modbus (8888)</option>
+              <option value="json_1053">JSON (1053)</option>
+              <option value="sync_8887">同步广播 (8887)</option>
+              <option value="custom">自定义</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>目标IP</label><input v-model="cmdForm.target_ip" placeholder="192.168.0.7">
+          </div>
+          <div class="form-row">
+            <label>目标端口</label><input v-model.number="cmdForm.target_port" type="number" placeholder="8234">
+          </div>
+          <div class="form-row">
+            <label>命令数据</label><textarea v-model="cmdForm.data" placeholder='HEX: "01 06 00 01 00 01"&#10;JSON: {"Computer":"开"}&#10;TEXT: plain text'></textarea>
+          </div>
+          <div style="text-align:right;margin-top:12px">
+            <button class="btn btn-primary" @click="doSendCommand">⚡ 发送命令</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">命令历史 <button class="btn btn-sm" @click="loadCommands">🔄 刷新</button></div>
+          <table v-if="commands.length">
+            <tr><th>ID</th><th>终端</th><th>类型</th><th>数据</th><th>状态</th><th>响应</th><th>时间</th></tr>
+            <tr v-for="c in commands" :key="c.id">
+              <td>{{c.id}}</td><td>{{c.device_id}}</td><td>{{c.command_type}}</td>
+              <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="JSON.stringify(c.command_data)">{{JSON.stringify(c.command_data)}}</td>
+              <td><span class="badge" :class="c.status">{{c.status}}</span></td>
+              <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis" :title="c.response">{{c.response||'-'}}</td>
+              <td>{{formatTime(c.created_at)}}</td>
+            </tr>
+          </table>
+          <div v-else class="empty">暂无命令记录</div>
+        </div>
+      </div>
+
+      <!-- Logs -->
+      <div v-if="page==='logs'">
+        <div class="page-header"><h2>日志查看</h2></div>
+        <div class="card">
+          <div class="form-row">
+            <label>终端</label>
+            <select v-model="logFilter.device_id" @change="loadLogs">
+              <option value="">全部终端</option>
+              <option v-for="t in terminals" :key="t.device_id" :value="t.device_id">{{t.device_name||t.device_id}}</option>
+            </select>
+            <label>级别</label>
+            <select v-model="logFilter.level" @change="loadLogs">
+              <option value="">全部</option>
+              <option value="DEBUG">DEBUG</option>
+              <option value="INFO">INFO</option>
+              <option value="WARN">WARN</option>
+              <option value="ERROR">ERROR</option>
+            </select>
+            <button class="btn" @click="loadLogs">🔄 刷新</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="log-viewer" ref="logViewer">
+            <div v-if="logs.length" v-for="log in logs" :key="log.id" class="log-line" :class="'log-'+log.log_level.toLowerCase()">
+              <span class="log-ts">[{{formatTime(log.timestamp)}}]</span>
+              <span :class="'log-'+log.log_level.toLowerCase()">[{{log.log_level}}]</span>
+              <span style="color:#9cdcfe">[{{log.device_id}}]</span>
+              {{log.message}}
+            </div>
+            <div v-if="!logs.length" style="color:#666;text-align:center;padding:40px">暂无日志</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Update History -->
+      <div v-if="page==='updates'">
+        <div class="page-header"><h2>更新历史</h2><button class="btn" @click="loadUpdateHistory">🔄 刷新</button></div>
+        <div class="card">
+          <div class="form-row">
+            <label>终端</label>
+            <select v-model="updateFilter.device_id" @change="loadUpdateHistory">
+              <option value="">全部终端</option>
+              <option v-for="t in terminals" :key="t.device_id" :value="t.device_id">{{t.device_name||t.device_id}}</option>
+            </select>
+          </div>
+        </div>
+        <div class="card">
+          <table v-if="updateHistory.length">
+            <tr><th>ID</th><th>终端</th><th>原版本</th><th>目标版本</th><th>状态</th><th>创建时间</th><th>更新时间</th></tr>
+            <tr v-for="h in updateHistory" :key="h.id">
+              <td>{{h.id}}</td>
+              <td>{{h.device_id}}</td>
+              <td>{{h.from_version_code||'-'}}</td>
+              <td>v{{h.to_version_name}} ({{h.to_version_code}})</td>
+              <td><span class="badge" :class="h.status">{{updateStatusText(h.status)}}</span></td>
+              <td>{{formatTime(h.created_at)}}</td>
+              <td>{{formatTime(h.updated_at)}}</td>
+            </tr>
+          </table>
+          <div v-else class="empty">暂无更新记录</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
+<script>
+const { createApp, ref, reactive, onMounted, onUnmounted } = Vue;
+
+createApp({
+  setup() {
+    const token = ref(localStorage.getItem('sslab_token') || '');
+    const page = ref('dashboard');
+    const loginForm = reactive({ username: 'admin', password: '' });
+    const loginError = ref('');
+
+    // Data
+    const stats = ref({});
+    const terminals = ref([]);
+    const firmwareList = ref([]);
+    const commands = ref([]);
+    const logs = ref([]);
+    const selectedTerminal = ref(null);
+
+    // Upload
+    const showUploadModal = ref(false);
+    const uploadForm = reactive({ version_code: 0, version_name: '', changelog: '' });
+    const uploadFile = ref(null);
+    const uploading = ref(false);
+
+    // Command
+    const cmdForm = reactive({ device_id: '', command_type: 'tcp_send', target_ip: '', target_port: 0, data: '' });
+
+    // Log filter
+    const logFilter = reactive({ device_id: '', level: '' });
+
+    // Push update
+    const showPushModal = ref(false);
+    const pushTarget = ref({});
+    const pushSelectedDevices = ref([]);
+    const pushing = ref(false);
+    const latestFirmware = ref(null);
+
+    // Update history
+    const updateHistory = ref([]);
+    const updateFilter = reactive({ device_id: '' });
+
+    const API = window.location.origin;
+
+    async function api(path, options = {}) {
+      const headers = { ...options.headers };
+      if (token.value) headers['Authorization'] = 'Bearer ' + token.value;
+      if (!(options.body instanceof FormData) && options.body) headers['Content-Type'] = 'application/json';
+      try {
+        const res = await fetch(API + path, { ...options, headers });
+        if (res.status === 401) { token.value = ''; localStorage.removeItem('sslab_token'); return null; }
+        return await res.json();
+      } catch (e) { console.error('API Error:', e); return null; }
+    }
+
+    async function doLogin() {
+      loginError.value = '';
+      const res = await api('/api/auth/login', { method: 'POST', body: JSON.stringify(loginForm) });
+      if (res && res.token) {
+        token.value = res.token;
+        localStorage.setItem('sslab_token', res.token);
+        loadAll();
+        startAutoRefresh();
+      } else {
+        loginError.value = '登录失败，请检查用户名密码';
+      }
+    }
+
+    function logout() { token.value = ''; localStorage.removeItem('sslab_token'); stopAutoRefresh(); }
+
+    async function loadStats() { const r = await api('/api/stats'); if (r) stats.value = r; }
+    async function loadTerminals() { const r = await api('/api/terminal/list'); if (r) terminals.value = r.terminals || []; }
+    async function loadFirmware() {
+      const r = await api('/api/firmware/list');
+      if (r) {
+        firmwareList.value = r.firmware || [];
+        const active = firmwareList.value.filter(f => f.is_active).sort((a, b) => b.version_code - a.version_code);
+        latestFirmware.value = active.length ? active[0] : null;
+      }
+    }
+    async function loadCommands() { const r = await api('/api/command/history'); if (r) commands.value = r.commands || []; }
+    async function loadLogs() {
+      let path = '/api/terminal/' + (logFilter.device_id || terminals.value[0]?.device_id || 'none') + '/logs?limit=500';
+      if (logFilter.level) path += '&level=' + logFilter.level;
+      if (!logFilter.device_id && !terminals.value.length) { logs.value = []; return; }
+      if (!logFilter.device_id && terminals.value.length) {
+        // Load all terminals' logs
+        let allLogs = [];
+        for (const t of terminals.value.slice(0, 5)) {
+          let p = '/api/terminal/' + t.device_id + '/logs?limit=100';
+          if (logFilter.level) p += '&level=' + logFilter.level;
+          const r = await api(p);
+          if (r && r.logs) allLogs = allLogs.concat(r.logs);
+        }
+        allLogs.sort((a, b) => b.timestamp - a.timestamp);
+        logs.value = allLogs.slice(0, 500);
+        return;
+      }
+      const r = await api(path);
+      if (r) logs.value = r.logs || [];
+    }
+
+    async function loadAll() {
+      await Promise.all([loadStats(), loadTerminals(), loadFirmware()]);
+    }
+
+    async function doUpload() {
+      if (!uploadFile.value) return alert('请选择APK文件');
+      if (!uploadForm.version_code) return alert('请填写版本号');
+      if (!uploadForm.version_name) return alert('请填写版本名');
+      uploading.value = true;
+      const fd = new FormData();
+      fd.append('file', uploadFile.value);
+      fd.append('version_code', uploadForm.version_code);
+      fd.append('version_name', uploadForm.version_name);
+      fd.append('changelog', uploadForm.changelog);
+      const r = await api('/api/firmware/upload', { method: 'POST', body: fd });
+      uploading.value = false;
+      if (r && r.id) { showUploadModal.value = false; loadFirmware(); alert('上传成功！'); }
+      else alert('上传失败');
+    }
+
+    async function toggleFw(fw) {
+      await api('/api/firmware/' + fw.id + '/toggle', { method: 'POST', body: JSON.stringify({ active: !fw.is_active }) });
+      loadFirmware();
+    }
+    function downloadFw(fw) { window.open(API + '/api/firmware/download/' + fw.id); }
+    async function deleteFw(fw) {
+      if (!confirm('确定删除固件 ' + fw.version_name + '?')) return;
+      await api('/api/firmware/' + fw.id, { method: 'DELETE' });
+      loadFirmware();
+    }
+
+    function showTerminalDetail(t) { selectedTerminal.value = { ...t }; }
+    function quickSendCmd(device_id) { selectedTerminal.value = null; page.value = 'commands'; cmdForm.device_id = device_id; loadCommands(); }
+    function viewTerminalLogs(device_id) { selectedTerminal.value = null; page.value = 'logs'; logFilter.device_id = device_id; loadLogs(); }
+
+    async function doSendCommand() {
+      if (!cmdForm.device_id) return alert('请选择终端');
+      if (!cmdForm.command_type) return alert('请选择命令类型');
+      const data = {
+        device_id: cmdForm.device_id,
+        command_type: cmdForm.command_type,
+        command_data: { target_ip: cmdForm.target_ip, target_port: cmdForm.target_port, data: cmdForm.data }
+      };
+      const r = await api('/api/command/send', { method: 'POST', body: JSON.stringify(data) });
+      if (r && r.command_id) { alert('命令已发送，ID: ' + r.command_id); loadCommands(); }
+      else alert('发送失败');
+    }
+
+    function formatTime(ts) {
+      if (!ts) return '-';
+      const d = new Date(ts * 1000);
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + ' ' +
+             String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+    }
+    function formatSize(bytes) {
+      if (!bytes) return '-';
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    // Push update
+    function openPushModal(fw) {
+      pushTarget.value = fw;
+      pushSelectedDevices.value = [];
+      showPushModal.value = true;
+      loadTerminals();
+    }
+    function pushSelectAll() { pushSelectedDevices.value = terminals.value.map(t => t.device_id); }
+    function pushSelectOutdated() {
+      if (!pushTarget.value.version_code) return;
+      pushSelectedDevices.value = terminals.value.filter(t => t.version_code < pushTarget.value.version_code).map(t => t.device_id);
+    }
+    async function doPushUpdate() {
+      if (!pushSelectedDevices.value.length) return;
+      pushing.value = true;
+      const r = await api('/api/firmware/push-update', {
+        method: 'POST',
+        body: JSON.stringify({ device_ids: pushSelectedDevices.value, firmware_id: pushTarget.value.id })
+      });
+      pushing.value = false;
+      if (r && r.status === 'ok') {
+        alert('已向 ' + r.results.length + ' 台终端推送更新命令');
+        showPushModal.value = false;
+      } else {
+        alert('推送失败');
+      }
+    }
+    function pushSingleTerminal(t) {
+      if (!latestFirmware.value) return alert('没有可用的激活固件');
+      selectedTerminal.value = null;
+      pushTarget.value = latestFirmware.value;
+      pushSelectedDevices.value = [t.device_id];
+      showPushModal.value = true;
+      page.value = 'firmware';
+      loadTerminals();
+    }
+
+    // Update history
+    async function loadUpdateHistory() {
+      let path = '/api/firmware/update-history';
+      if (updateFilter.device_id) path += '?device_id=' + encodeURIComponent(updateFilter.device_id);
+      const r = await api(path);
+      if (r) updateHistory.value = r.history || [];
+    }
+    function updateStatusText(s) {
+      const map = { pending: '等待中', downloading: '下载中', downloaded: '已下载', installing: '安装中', installed: '已安装', failed: '失败' };
+      return map[s] || s;
+    }
+
+    let refreshTimer = null;
+    function startAutoRefresh() {
+      stopAutoRefresh();
+      refreshTimer = setInterval(() => {
+        if (!token.value) return;
+        if (page.value === 'dashboard') loadAll();
+        else if (page.value === 'terminals') loadTerminals();
+        else if (page.value === 'firmware') loadFirmware();
+        else if (page.value === 'commands') loadCommands();
+        else if (page.value === 'logs') loadLogs();
+        else if (page.value === 'updates') loadUpdateHistory();
+      }, 10000);
+    }
+    function stopAutoRefresh() { if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; } }
+
+    onMounted(() => { if (token.value) { loadAll(); startAutoRefresh(); } });
+    onUnmounted(() => stopAutoRefresh());
+
+    return {
+      token, page, loginForm, loginError, stats, terminals, firmwareList, commands, logs,
+      showUploadModal, uploadForm, uploadFile, uploading,
+      showPushModal, pushTarget, pushSelectedDevices, pushing, latestFirmware,
+      updateHistory, updateFilter,
+      cmdForm, logFilter, selectedTerminal,
+      doLogin, logout, loadAll, loadStats, loadTerminals, loadFirmware, loadCommands, loadLogs,
+      doUpload, toggleFw, downloadFw, deleteFw, showTerminalDetail, quickSendCmd, viewTerminalLogs,
+      doSendCommand, formatTime, formatSize,
+      openPushModal, pushSelectAll, pushSelectOutdated, doPushUpdate, pushSingleTerminal,
+      loadUpdateHistory, updateStatusText
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

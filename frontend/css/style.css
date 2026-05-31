@@ -1,0 +1,178 @@
+/* ========== AI Helper Floating Panel ========== */
+.ai-fab {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    width: 48px;
+    height: 48px;
+    line-height: 48px;
+    text-align: center;
+    background: #007bff;
+    color: #fff;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    z-index: 9998;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.ai-panel {
+    position: fixed;
+    right: 20px;
+    bottom: 80px;
+    width: 360px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 120px);
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    display: none;
+    z-index: 9999;
+    overflow: hidden;
+}
+.ai-panel.show { display: block; }
+.ai-header {
+    padding: 10px 12px;
+    background: #f7f7f9;
+    border-bottom: 1px solid #eee;
+    font-weight: 600;
+}
+.ai-header #aiClose { float: right; cursor: pointer; }
+.ai-body {
+    padding: 10px 12px;
+    height: 360px;
+    overflow: auto;
+}
+.ai-input { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #eee; }
+.ai-input input[type="text"] { flex: 1; min-width: 0; }
+.ai-input button { white-space: nowrap; }
+.ai-msg { margin: 6px 0; font-size: 14px; line-height: 1.5; }
+.ai-user { text-align: right; }
+.ai-bot { text-align: left; color: #333; }
+
+/* 1280x800 优化与低分辨率保护 */
+@media (max-width: 1366px), (max-height: 820px) {
+    .ai-panel { width: 340px; }
+    .ai-body { height: 300px; }
+}
+@media (max-width: 1280px), (max-height: 800px) {
+    .ai-panel { width: 320px; }
+    .ai-body { height: 280px; }
+}
+body{ font-family:"微软雅黑", Arial, sans-serif; font-size:14px; min-height: 100vh;  color:#222; background: url(../images/back.png) center no-repeat; background-size: cover; padding-top: 30px; position: relative;}
+li{ list-style:none;}
+ul{ padding:0; margin:0;}
+a{ color:#444;text-decoration:none}
+a:hover{ text-decoration:none !important; color: #272d5a;}
+a:focus{ text-decoration:none !important; outline: none !important;}
+button:focus,button:hover{outline: none !important;}
+ul,ol{ margin:0; padding:0; }
+img{ max-width:100%;}
+input,button {outline:none;}
+.img-hide{ overflow:hidden; display: block; }
+.img-hide img{ transition: 0.3s all; }
+.img-hide:hover img{transform: scale(1.05,1.05); }
+.txt-elise{overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;}
+.center-box{ width: 1200px; margin:0 auto; }
+.tabs-ul li{ float: left; margin-right: 30px; margin-bottom: 10px; }
+.tabs-ul li a{ display: block; position: relative; background: #f2f2f2; border-radius: 8px; line-height: 65px; font-size: 16px; color: #222; width: 160px; }
+.tabs-ul li:nth-child(1) a span{ padding-left: 28px; background: url(../images/icon01.png) left center no-repeat; }
+.tabs-ul li:nth-child(2) a span{ padding-left: 28px; background: url(../images/icon02.png) left center no-repeat; }
+.tabs-ul li:nth-child(3) a span{ padding-left: 28px; background: url(../images/icon03.png) left center no-repeat; }
+.tabs-ul li:nth-child(4) a span{ padding-left: 28px; background: url(../images/icon04.png) left center no-repeat; }
+.tabs-ul li:nth-child(1).active a span{ padding-left: 28px; background: url(../images/icon01-1.png) left center no-repeat; }
+.tabs-ul li:nth-child(2).active a span{ padding-left: 28px; background: url(../images/icon02-1.png) left center no-repeat; }
+.tabs-ul li:nth-child(3).active a span{ padding-left: 28px; background: url(../images/icon03-1.png) left center no-repeat; }
+.tabs-ul li:nth-child(4).active a span{ padding-left: 28px; background: url(../images/icon04-1.png) left center no-repeat; }
+.tabs-ul li.active a{ background: #4e70ec; color: #fff; }
+.left-box{ width: 380px; margin-right: 20px; border-radius: 30px; background: #fff; height: 400px; padding:20px; box-sizing: border-box; }
+.box-title{ font-size: 18px; color: #222; padding-bottom: 4px; }
+.left-box-txt{ font-size: 16px; line-height: 30px; }
+.dy-input{ height: 30px; border:solid 1px #222; border-radius: 2px; box-shadow: none; text-align: right; font-size: 16px; width: 80px; }
+.dw-txt{ font-size: 16px; line-height: 30px; margin-left: 10px; }
+.left-box-c{ margin-top: 15px; }
+.hj-left font{ color: #aaa; }
+.blue,.hj-left font.blue{ color: #4e70ec; }
+.switch{ position: relative; cursor: pointer; transition: 0.3s all; width: 60px; background: #f2f2f2; border-radius: 30px; height: 30px; }
+.switch input{ position: absolute; opacity: 0; left: 0; top: 0; width: 100%; height: 100%; }
+.switch:before{ display: block; content: ""; z-index: 100; transition: 0.3s all; position: absolute; left: 3px; top: 3px; bottom: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; }
+.switch span{ position: absolute; left: 3px; top: 3px; bottom: 3px; width: 24px; height: 24px; border-radius: 50%; font-size: 14px; color: #fff; line-height: 24px; text-align: center; }
+.switch font{ position: absolute; right: 3px; top: 3px; bottom: 3px; width: 24px; height: 24px; border-radius: 50%; font-size: 14px; color: #aaa; line-height: 24px; text-align: center; }
+.switch.active{ background: #4e70ec; }
+.switch.active:before{ left: 33px; }
+.date-txt{ margin-right: 30px; font-size: 16px; line-height: 30px; }
+.right-width{ width: 380px; }
+.left-box-sm{ height: 125px; margin-bottom: 20px; width: 100%; }
+.left-box-xs{ height: 255px; width: 100%; }
+.go-back{ display: block; border-radius: 10px; color: #fff!important; font-size: 16px; width: 120px; margin-top: 20px; line-height: 48px; text-align: center; background: #4e70ec; }
+.go-back span{ display: inline-block; line-height: 48px; padding-left: 33px; background: url(../images/go-back.png) left center no-repeat; }
+.hj-list li{ font-size: 16px; margin-bottom: 15px; }
+.hj-list{ padding-top: 20px; }
+.hj-list li span{ display: inline-block; width: 65px; }
+.hj-left{ width: 50%; }
+.left-box-lg{ width: 380px; }
+.right-width-lg{ width: 250px; }
+.left-box-sm-b{ height: 195px; }
+.left-box-dt{ width: 650px; }
+.dt-list li{ float: left; width: 25%; margin-bottom: 25px; font-size: 16px; line-height: 30px; }
+.dt-list li font{ display: inline-block; width: 56px;}
+.dt-list li span{ display: inline-block; line-height: 30px; border:solid 1px #222; border-radius: 2px; width: 60px; text-align: center; }
+.zq{ color: #00b361; } 
+.cw{ color: #fe0000; } 
+.kuai{ color: #4e70ec; }
+.dt-list{ padding-top: 30px; height: 310px; }
+.dt-bottom{ font-size: 16px; }
+.dt-bottom span{ padding:0 5px; }
+.dt-right{ width: 210px; }
+.da-list li{ position: relative; padding-left: 32px; font-size: 18px; line-height: 22px; margin-bottom: 10px; }
+.da-list li:before{ display: block; content: ""; position: absolute; left: 0; top: 0; width: 22px; height: 22px; border:solid 1px #222; line-height: 20px; text-align: center; }
+.da-list li.active:before{ content: "✔"; background: #4e70ec; border-color: #4e70ec; color: #fff; font-size: 16px; }
+.da-list li.active{ color: #4e70ec; }
+.left-box-sm-d{ height: 270px; margin-bottom: 0; }
+.left-box-sm-e{ height: 180px; }
+.dy-input-sm{ width: 60px; }
+.left-box-sm-e .dw-txt{ width: 15px; text-align: center; }
+.sb-p{ font-size: 16px; margin-top: 20px; }
+.left-box-sm-f{ height: 210px; margin-bottom: 0; }
+.feature-disabled{ position: relative; overflow: hidden; }
+.feature-disabled:after{ content:"未开放"; position:absolute; left:0; top:0; right:0; bottom:0; background: rgba(0,0,0,0.45); color:#fff; font-size:18px; display:flex; align-items:center; justify-content:center; border-radius:30px; z-index:10; pointer-events:none; }
+.feature-disabled .switch{ pointer-events:none; filter: grayscale(1); opacity: 0.6; }
+.hidden-tab{ display: none !important; }
+
+/* AI 浮窗样式 */
+/* 删除旧的 AI 浮窗重复样式，保留顶部定义 */
+
+/* ========== 环境控制区 2x2 网格 ========== */
+.control-grid{
+    float: right;             /* 明确靠右，与左侧监测卡并排 */
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;                /* 行/列间距统一用 gap，去掉子项 margin */
+    justify-content: flex-start;
+    width: 780px;             /* 380 + 380 + 20 = 780 */
+}
+.control-grid .left-box,
+.control-grid .left-box.left-box-xs,
+.control-grid .left-box.left-box-sm,
+.control-grid .left-box.left-box-sm-b{
+    box-sizing: border-box;   /* 高度包括 padding，便于与左侧卡片对齐 */
+    width: 380px;             /* 380 + 380 + 20 = 780 */
+    height: calc((400px - 20px) / 2); /* 微调-2px，避免视觉上略高 */
+    padding: 20px;
+    margin-right: 0 !important; /* 移除 .left-box 默认 margin-right */
+    margin-bottom: 0 !important; /* Remove double spacing (gap + margin) */
+}
+@media (max-width: 1280px), (max-height: 800px){
+    /* 
+       如果是 1280px 屏幕，1200px 宽度应该刚好 (左右40 margin)
+       不需要额外缩小，除非有滚动条。如果需要微调，可以在这里改
+    */
+    /* .control-grid .left-box... { width: 380px; } - Keep consistent */
+}
+@media (max-width: 920px){
+    .control-grid{ gap: 12px; }
+    .control-grid .left-box{ width: 100%; height: auto; }
+}

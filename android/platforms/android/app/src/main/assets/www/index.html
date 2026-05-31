@@ -1,0 +1,1357 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="renderer" content="webkit">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>实验室综合管理</title>
+    <meta name="description" content="">
+    <meta name="keywords" content="">
+
+    
+    <!-- Bootstrap -->
+	<link href="css/bootstrap.css" rel="stylesheet">
+	<link href="css/style.css" rel="stylesheet">
+    <style>
+        /* Inline Status Badges */
+        .status-badge {
+            display: inline-block;
+            margin-left: 10px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .status-badge.connected {
+            background-color: #28a745;
+            color: white;
+        }
+        .status-badge.disconnected {
+            background-color: #dc3545;
+            color: white;
+        }
+        .status-badge.count {
+            background-color: #007bff;
+            color: white;
+        }
+        /* Top Right System Status */
+        .system-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 9999;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            display: none;
+            cursor: pointer;
+            user-select: none;
+        }
+        .system-status.online { background: rgba(40, 167, 69, 0.9); }
+        .system-status.offline { background: rgba(220, 53, 69, 0.9); cursor: default; }
+        #devInfoPopup {
+            display: none;
+            position: fixed;
+            top: 40px;
+            right: 10px;
+            z-index: 10000;
+            background: #222;
+            color: #eee;
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 13px;
+            line-height: 1.8;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            min-width: 200px;
+        }
+        #devInfoPopup .dev-id-val { color: #5bc0de; font-family: monospace; font-size: 15px; }
+        #devInfoPopup .close-tip { float: right; opacity: 0.5; cursor: pointer; margin-left: 10px; }
+    </style>
+</head>
+<body style="background-attachment: fixed;"> <!-- Fix background scroll issue -->
+    <!-- System Connection Status Indicator -->
+    <div id="connStatus" class="system-status" style="display:none;"></div>
+    <div id="devInfoPopup">
+        <span class="close-tip" onclick="$('#devInfoPopup').hide();">✕</span>
+        <div>设备ID</div>
+        <div class="dev-id-val" id="popupDevId">获取中...</div>
+        <div style="margin-top:6px;font-size:11px;opacity:0.6;">版本 <span id="popupVersion"></span></div>
+    </div>
+
+    <!-- Server Detection & Auto Refresh -->
+    <script>
+    (function() {
+        var REFRESH_INTERVAL = 600000; // 10 minutes refresh
+        setTimeout(function() {
+            console.log("Scheduled Refresh...");
+            window.location.reload();
+        }, REFRESH_INTERVAL);
+    })();
+    </script>
+
+	<!-- Auto-Zoom Container Script -->
+	<script>
+        function resizeLayout() {
+            var width = window.innerWidth;
+            var box = document.querySelector('.center-box');
+            if(width < 1250) {
+                 // Calculate zoom scale
+                 var scale = width / 1250;
+                 if(scale < 0.6) scale = 0.6;
+                 box.style.transform = 'scale(' + scale + ')';
+                 box.style.transformOrigin = 'top center';
+                 box.style.width = '1200px'; 
+             } else {
+                 box.style.transform = 'none';
+                 box.style.width = '1200px';
+             }
+        }
+        window.addEventListener('resize', resizeLayout);
+        window.addEventListener('load', resizeLayout);
+	</script>
+	<div class="center-box">
+		<ul class="tabs-ul clearfix text-center">
+			<li class="active"><a href="#home" aria-controls="home" role="tab" data-toggle="tab"><span>教学电源管理</span></a></li>
+			<li><a href="#profile" aria-controls="profile" role="tab" data-toggle="tab"><span>实验环境管理</span></a></li>
+			<li class="hidden-tab"><a href="#messages" aria-controls="messages" role="tab" data-toggle="tab"><span>互动教学管理</span></a></li>
+			<li class="hidden-tab"><a href="#settings" aria-controls="settings" role="tab" data-toggle="tab"><span>系统设置</span></a></li>
+		</ul>
+		<!-- Tab panes -->
+		<div class="tab-content">
+		    <div role="tabpanel" class="tab-pane active" id="home">
+				<div class="clearfix">
+					<div class="pull-left left-box">
+						<div class="box-title">低压教学电源设置<span class="status-badge disconnected" id="status8888">未连接</span></div>
+						<div class="clearfix left-box-c">
+							<div class="pull-left left-box-txt">实时电压</div>
+							<div class="pull-right dw-txt blue" id="realVoltageDiv">- V</div>
+						</div>
+						<div class="clearfix left-box-c">
+							<div class="pull-left left-box-txt">设置输出电压</div>
+							<div class="pull-right">
+								<div class="pull-left"><input type="number" class="form-control dy-input" value="" min="0" max="30" step="0.1" id="LowDYSZ" onchange="settingInput(this.id, this.value)"></div>
+								<div class="pull-left dw-txt">V</div>
+							</div>
+						</div>
+						<div class="clearfix left-box-c">
+							<div class="pull-left left-box-txt">实时电流</div>
+							<div class="pull-right dw-txt blue" id="realCurrentDiv">- A</div>
+						</div>
+						<div class="clearfix left-box-c">
+							<div class="pull-left left-box-txt">设置限制电流</div>
+							<div class="pull-right">
+								<div class="pull-left"><input type="number" class="form-control dy-input" value="0" min="0" max="2" step="0.1" id="LowDLSZ" onchange="settingInput(this.id, this.value)"></div>
+								<div class="pull-left dw-txt">A</div>
+							</div>
+						</div>
+						<div class="clearfix left-box-c" style="margin-top: 45px;">
+							<div class="pull-left left-box-txt">输出控制</div>
+							<div class="pull-right">
+								<div class="switch active" id="LowKZ"><input type="checkbox" checked="checked"><span>开</span><font>关</font></div>
+							</div>
+						</div>
+						<div class="clearfix left-box-c">
+							<div class="pull-left left-box-txt">直流-交流</div>
+							<div class="pull-right">
+								<div class="switch" id="LowDC_AC"><input type="checkbox"><span>开</span><font>关</font></div>
+							</div>
+						</div>
+					</div>
+					<div class="pull-left left-box">
+						<div class="box-title">高压电源设置<span class="status-badge disconnected" id="status8234a">未连接</span></div>
+						<div class="clearfix left-box-c">
+							<div class="pull-left left-box-txt">240V-300V</div>
+							<div class="pull-right">
+								<div class="switch" id="HighXZ"><input type="checkbox"><span>开</span><font>关</font></div>
+							</div>
+						</div>
+						<div class="clearfix left-box-c">
+							<div class="pull-left left-box-txt">关-开</div>
+							<div class="pull-right">
+								<div class="pull-left date-txt"><span id="HighKZCountdown">10s</span></div>
+								<div class="switch pull-left" id="HighKZ"><input type="checkbox"><span>开</span><font>关</font></div>
+							</div>
+						</div>
+						<div class="box-title" style="margin-top: 30px;">大电流电源设置</div>
+						<div class="clearfix left-box-c">
+							<div class="pull-left left-box-txt">关-开</div>
+							<div class="pull-right">
+								<div class="pull-left date-txt"><span id="HighCurrentCountdown">10s</span></div>
+								<div class="switch pull-left" id="HighCurrent"><input type="checkbox"><span>开</span><font>关</font></div>
+							</div>
+						</div>
+						<div class="box-title" style="margin-top: 30px;">电源插座开关</div>
+						<div class="clearfix left-box-c">
+							<div class="pull-left left-box-txt">关-开</div>
+							<div class="pull-right">
+								<div class="switch" id="PowerCZ"><input type="checkbox"><span>开</span><font>关</font></div>
+							</div>
+						</div>
+					</div>
+					<div class="pull-right right-width">
+						<div class="left-box left-box-sm">
+							<div class="box-title">学生电源控制<span class="status-badge disconnected" id="status8887">未连接</span></div>
+							<div class="clearfix left-box-c">
+								<div class="pull-left left-box-txt">低压电源同步</div>
+								<div class="pull-right">
+									<div class="switch" id="LowXSTB"><input type="checkbox"><span>开</span><font>关</font></div>
+								</div>
+							</div>
+						</div>
+						<div class="left-box left-box-xs">
+							<div class="box-title">学生分组开关<span class="status-badge disconnected" id="status8234b">未连接</span></div>
+							<div class="clearfix left-box-c">
+								<div class="pull-left left-box-txt">A组</div>
+								<div class="pull-right">
+									<div class="switch active" id="XS_A"><input type="checkbox" checked="checked"><span>开</span><font>关</font></div>
+								</div>
+							</div>
+							<div class="clearfix left-box-c">
+								<div class="pull-left left-box-txt">B组</div>
+								<div class="pull-right">
+									<div class="switch" id="XS_B"><input type="checkbox"><span>开</span><font>关</font></div>
+								</div>
+							</div>
+							<div class="clearfix left-box-c">
+								<div class="pull-left left-box-txt">C组</div>
+								<div class="pull-right">
+									<div class="switch active" id="XS_C"><input type="checkbox" checked="checked"><span>开</span><font>关</font></div>
+								</div>
+							</div>
+							<div class="clearfix left-box-c">
+								<div class="pull-left left-box-txt">D组</div>
+								<div class="pull-right">
+									<div class="switch" id="XS_D"><input type="checkbox"><span>开</span><font>关</font></div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="clearfix"><div class="pull-right"><a href="" class="go-back"><span>返回</span></a></div></div>
+		    </div>
+			
+		    <div role="tabpanel" class="tab-pane" id="profile">
+				<div class="clearfix">
+						<div class="pull-left left-box left-box-lg">
+						<div class="box-title">环境监测数据<span class="status-badge disconnected" id="status8889">加载中</span></div>
+						<ul class="hj-list">
+							<li class="clearfix">
+								<div class="pull-left hj-left"><span>天气：</span><font class="blue" id="envWeatherDesc">-</font></div>
+								<div class="pull-right hj-left"><span>紫外线：</span><font class="blue" id="envUVFnt">-</font></div>
+							</li>
+							<li class="clearfix">
+								<div class="pull-left hj-left"><span>温度：</span><font class="blue" id="envTempFnt">- °C</font></div>
+								<div class="pull-right hj-left"><span>湿度：</span><font class="blue" id="envHumidityFnt">- %</font></div>
+							</li>
+							<li class="clearfix">
+								<div class="pull-left hj-left"><span>体感：</span><font class="blue" id="envFeelsLikeFnt">- °C</font></div>
+								<div class="pull-right hj-left"><span>能见度：</span><font class="blue" id="envVisibilityFnt">- km</font></div>
+							</li>
+							<li class="clearfix">
+								<div class="pull-left hj-left"><span>风速：</span><font class="blue" id="envWindSpeedFnt">- km/h</font></div>
+								<div class="pull-right hj-left"><span>气压：</span><font class="blue" id="envPressureFnt">- hPa</font></div>
+							</li>
+						</ul>
+						<ul class="hj-list">
+							<li class="clearfix">
+								<div class="pull-left hj-left"><span>电压：</span><font class="blue" id="envVoltageFnt">- V</font></div>
+								<div class="pull-right hj-left"><span>电流：</span><font class="blue" id="envCurrentFnt">- A</font></div>
+							</li>
+							<li class="clearfix">
+								<div class="pull-left hj-left"><span>功率：</span><font class="blue" id="envCapacityFnt">- W</font></div>
+								<div class="pull-right hj-left"><span>用电量：</span><font class="blue" id="envKwhFnt">- 度</font></div>
+							</li>
+							<li class="clearfix">
+								<div class="pull-left hj-left"><span>供水：</span><font class="blue" id="envWaterSupplyFnt">开启</font></div>
+								<div class="pull-right hj-left"><span>排风</span><font id="envAirExhaustFnt">关闭</font></div>
+							</li>
+						</ul>
+
+					</div>
+					<!-- 控制区：2x2 网格，含 环境控制 / 升降与电脑 / 灯光控制 / 变频器控制 -->
+					<div class="control-grid">
+						<!-- 环境控制 -->
+						<div class="left-box left-box-sm left-box-sm-b">
+							<div class="box-title">环境控制<span class="status-badge disconnected" id="status8892">未连接</span></div>
+							<div class="clearfix left-box-c">
+								<div class="pull-left left-box-txt">供水控制</div>
+								<div class="pull-right">
+									<div class="switch active" id="GSKZ"><input type="checkbox" checked="checked"><span>开</span><font>关</font></div>
+								</div>
+							</div>
+							<div class="clearfix left-box-c">
+								<div class="pull-left left-box-txt">排风控制</div>
+								<div class="pull-right">
+									<div class="switch" id="PFKZ"><input type="checkbox"><span>开</span><font>关</font></div>
+								</div>
+							</div>
+						</div>
+
+						<!-- 升降与电脑（紧跟环境控制，位于右侧） -->
+						<div class="left-box left-box-xs left-box-sm-b">
+							<div class="box-title">升降与电脑<span class="status-badge count" id="status1053">0</span></div>
+							<div class="clearfix left-box-c">
+								<div class="pull-left left-box-txt">升起-落下</div>
+								<div class="pull-right">
+									<div class="switch active" id="Lifting" title="升降开关"><input type="checkbox" checked="checked"><span>开</span><font>关</font></div>
+								</div>
+							</div>
+							<div class="clearfix left-box-c">
+								<div class="pull-left left-box-txt">电脑开关</div>
+								<div class="pull-right">
+									<div class="switch" id="Computer" title="电脑开关"><input type="checkbox"><span>开</span><font>关</font></div>
+								</div>
+							</div>
+						</div>
+
+						<!-- 灯光控制（位于第二行左侧） -->
+						<div class="left-box left-box-xs left-box-sm-b">
+							<div class="box-title">灯光控制<span class="status-badge disconnected" id="status8890">未连接</span></div>
+							<div class="clearfix left-box-c">
+								<div class="pull-left left-box-txt">黑板灯</div>
+								<div class="pull-right">
+									<div class="switch active" id="BBLampKZ"><input type="checkbox" checked="checked"><span>开</span><font>关</font></div>
+								</div>
+							</div>
+							<div class="clearfix left-box-c">
+								<div class="pull-left left-box-txt">教室灯</div>
+								<div class="pull-right">
+									<div class="switch" id="CRLampKZ"><input type="checkbox"><span>开</span><font>关</font></div>
+								</div>
+							</div>
+						</div>
+
+						<!-- 变频器控制 -->
+						<div class="left-box left-box-xs left-box-sm-b">
+							<div class="box-title">变频器控制<span class="status-badge disconnected" id="status8891">未连接</span></div>
+							<div class="clearfix left-box-c">
+								<div class="pull-left left-box-txt">变频器开关</div>
+								<div class="pull-right">
+									<div class="switch" id="VFD_Power" title="变频器开关"><input type="checkbox"><span>开</span><font>关</font></div>
+								</div>
+							</div>
+							<div class="clearfix left-box-c">
+								<div class="pull-left left-box-txt">速度档位</div>
+								<div class="pull-right">
+									<select class="form-control dy-input" id="VFD_Speed" title="变频器速度档位" onchange="settingInput(this.id, this.value)">
+										<option value="1">低速（一档）</option>
+										<option value="2">中速（二档）</option>
+										<option value="3">高速（三档）</option>
+									</select>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="clearfix"><div class="pull-right"><a href="" class="go-back"><span>返回</span></a></div></div>
+		    </div>
+			
+		    <div role="tabpanel" class="tab-pane hidden-tab" id="messages">
+				<div class="clearfix">
+					<div class="pull-left left-box left-box-dt">
+						<div class="box-title">学生互动答题区</div>
+						<ul class="dt-list clearfix">
+							<li><font>A1号</font><span class="zq">A</span></li>
+							<li><font>B1号</font><span class="zq">A</span></li>
+							<li><font>C1号</font><span class="zq">A</span></li>
+							<li><font>D1号</font><span class="cw">A</span></li>
+							<li><font>A2号</font><span class="zq">A</span></li>
+							<li><font>B2号</font><span class="zq">A</span></li>
+							<li><font>C2号</font><span class="zq">A</span></li>
+							<li><font>D2号</font><span class="cw">A</span></li>
+							<li><font>A3号</font><span class="zq">A</span></li>
+							<li class="kuai"><font>B3号</font><span class="zq">A</span></li>
+							<li><font>C3号</font><span class="zq">A</span></li>
+							<li><font>D3号</font><span class="cw">A</span></li>
+							<li><font>A4号</font><span class="zq">A</span></li>
+							<li><font>B4号</font><span class="zq">A</span></li>
+							<li><font>C4号</font><span class="zq">A</span></li>
+							<li><font>D4号</font><span class="cw">A</span></li>
+						</ul>
+						<div class="dt-bottom text-center">本次作答：正确<span class="zq">10</span>人，错误<span class="cw">2</span>人，最快答题学生为<span class="kuai">D2</span>号</div>
+					</div>
+					<div class="pull-right dt-right">
+						<div class="left-box left-box-sm">
+							<div class="box-title">答题控制</div>
+							<div class="clearfix left-box-c">
+								<div class="pull-left left-box-txt">10 s</div>
+								<div class="pull-right">
+									<div class="switch active"><input type="checkbox" checked="checked" title="答题开关"><span>开</span><span>关</span></div>
+								</div>
+							</div>
+						</div>
+						<div class="left-box left-box-sm left-box-sm-d">
+							<div class="box-title">正确答案选择</div>
+							<ul class="hj-list">
+								<li class="clearfix">
+									<div class="pull-left hj-left"><span>甲醛：</span><font class="blue" id="envCH2OFnt">- μg/m3</font></div>
+									<div class="pull-right hj-left"><span>TVOC：</span><font class="blue" id="envTVOCFnt">-</font></div>
+								</li>
+						</div>
+					</div>
+				</div>
+				<div class="clearfix"><div class="pull-right"><a href="" class="go-back"><span>返回</span></a></div></div>
+		    </div>
+			
+		    <div role="tabpanel" class="tab-pane hidden-tab" id="settings">
+				<div class="clearfix">
+					<div class="pull-left left-box left-box-dt">
+						<div class="box-title">学生互动答题区</div>
+						<ul class="dt-list clearfix">
+							<li><font>A1号</font><span>1</span></li>
+							<li><font>B1号</font><span>10</span></li>
+							<li><font>C1号</font><span>10</span></li>
+							<li><font>D1号</font><span>10</span></li>
+							<li><font>A2号</font><span>10</span></li>
+							<li><font>B2号</font><span>10</span></li>
+							<li><font>C2号</font><span>10</span></li>
+							<li><font>D2号</font><span>10</span></li>
+							<li><font>A3号</font><span>10</span></li>
+							<li><font>B3号</font><span>10</span></li>
+							<li><font>C3号</font><span>10</span></li>
+							<li><font>D3号</font><span>10</span></li>
+							<li><font>A4号</font><span>10</span></li>
+							<li><font>B4号</font><span>10</span></li>
+							<li><font>C4号</font><span>10</span></li>
+							<li><font>D4号</font><span>10</span></li>
+						</ul>
+					</div>
+					<div class="pull-right dt-right">
+						<div class="left-box left-box-sm left-box-sm-e">
+							<div class="box-title">其他设置</div>
+							<div class="clearfix left-box-c">
+								<div class="pull-left left-box-txt">答题时间</div>
+								<div class="pull-right">
+									<div class="pull-left"><input type="text" class="form-control dy-input dy-input-sm" value="10" title="答题时间（秒）"></div>
+									<div class="pull-left dw-txt">s</div>
+								</div>
+							</div>
+							<div class="clearfix left-box-c">
+								<div class="pull-left left-box-txt">自动关机</div>
+								<div class="pull-right">
+									<div class="pull-left"><input type="text" class="form-control dy-input dy-input-sm" value="10" title="自动关机（分钟）"></div>
+									<div class="pull-left dw-txt">m</div>
+								</div>
+							</div>
+						</div>
+						<div class="left-box left-box-sm left-box-sm-f">
+							<div class="box-title">设备信息</div>
+							<div class="sb-p">主机序列号：<br><span class="blue">78:8a:86:63:85:1b</span></div>
+							<div class="sb-p">通讯设备编号：<br><span class="blue" id="device-id-display-settings">获取中...</span></div>
+						</div>
+					</div>
+				</div>
+				<div class="clearfix"><div class="pull-right"><a href="" class="go-back"><span>返回</span></a></div></div>
+		    </div>
+		 </div>
+	</div>
+
+</body>
+<script src="js/jquery.min.js" type="text/javascript"></script>
+<script src="js/bootstrap.min.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+// 目标说明：前端命令应发送到 Node-RED（默认端口 1880）。
+// 可通过查询参数覆盖：?apiHost=127.0.0.1&apiPort=1880&useBackend=0
+var qs = new URLSearchParams(location.search);
+var defaultHost = (location.hostname && location.hostname !== '') ? location.hostname : '127.0.0.1';
+var useBackend = true; // 默认使用新后端架构
+var host = qs.get('apiHost') || defaultHost;
+var httpPort = Number(qs.get('apiPort') || qs.get('httpPort')) || 1880;
+var wsPort = Number(qs.get('wsPort')) || httpPort;
+var enablePolling = qs.get('poll') === '1';
+
+// 最近下发的期望状态（用于短期乐观 UI 保护）
+var _lastIssued = {}; 
+var _stickyKeys = {
+	BBLampKZ: true,
+	CRLampKZ: true,
+	GSKZ: true,
+	PFKZ: true,
+	VFD_Power: true,
+	Lifting: true,
+	Computer: true
+};
+
+function buildCompatBody(key, value){
+	var isBool = (typeof value === 'boolean');
+	var num = isBool ? (value ? 1 : 0) : (isFinite(value) ? Number(value) : undefined);
+	var txt = isBool ? (value ? 'on' : 'off') : String(value);
+	var body = {};
+	body[key] = value;        
+	body.value = (num !== undefined ? num : value); 
+	body.state = (num !== undefined ? num : (isBool ? (value?1:0) : undefined)); 
+	body.bool = !!(isBool ? value : (num !== undefined ? (num!==0) : !!value));
+	body.text = txt;          
+	return body;
+}
+
+// 按钮点击音效
+function playClickSound(){
+	try {
+		var AC = window.AudioContext || window.webkitAudioContext;
+		if (!AC) return;
+		var ctx = window.__clickAudioCtx || new AC();
+		window.__clickAudioCtx = ctx;
+		var now = ctx.currentTime;
+		var osc1 = ctx.createOscillator();
+		var gain1 = ctx.createGain();
+		osc1.type = 'square';
+		osc1.frequency.setValueAtTime(880, now);
+		gain1.gain.setValueAtTime(0.0001, now);
+		gain1.gain.exponentialRampToValueAtTime(0.35, now + 0.01);
+		gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.10);
+		osc1.connect(gain1).connect(ctx.destination);
+		osc1.start(now);
+		osc1.stop(now + 0.11);
+		var osc2 = ctx.createOscillator();
+		var gain2 = ctx.createGain();
+		osc2.type = 'triangle';
+		osc2.frequency.setValueAtTime(1320, now + 0.015);
+		gain2.gain.setValueAtTime(0.0001, now + 0.015);
+		gain2.gain.exponentialRampToValueAtTime(0.28, now + 0.035);
+		gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+		osc2.connect(gain2).connect(ctx.destination);
+		osc2.start(now + 0.015);
+		osc2.stop(now + 0.145);
+	} catch(e) { try { console.warn('playClickSound error', e); } catch(_){} }
+}
+
+function playTickSound(){
+	try {
+		var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+		var ctx = window.__clickAudioCtx || new AC(); window.__clickAudioCtx = ctx;
+		var now = ctx.currentTime;
+		var o = ctx.createOscillator(); var g = ctx.createGain();
+		o.type = 'sine';
+		o.frequency.setValueAtTime(1200, now);
+		g.gain.setValueAtTime(0.0001, now);
+		g.gain.exponentialRampToValueAtTime(0.15, now + 0.005);
+		g.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
+		o.connect(g).connect(ctx.destination);
+		o.start(now); o.stop(now + 0.07);
+	} catch(e) { try { console.warn('playTickSound error', e); } catch(_){} }
+}
+
+function playEndSound(){
+	try {
+		var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+		var ctx = window.__clickAudioCtx || new AC(); window.__clickAudioCtx = ctx;
+		var now = ctx.currentTime;
+		var freqs = [1568, 1175, 880]; 
+		freqs.forEach(function(f, i){
+			var o = ctx.createOscillator(); var g = ctx.createGain();
+			o.type = 'square';
+			o.frequency.setValueAtTime(f, now + i*0.09);
+			g.gain.setValueAtTime(0.0001, now + i*0.09);
+			g.gain.exponentialRampToValueAtTime(0.28, now + i*0.09 + 0.01);
+			g.gain.exponentialRampToValueAtTime(0.0001, now + i*0.09 + 0.12);
+			o.connect(g).connect(ctx.destination);
+			o.start(now + i*0.09); o.stop(now + i*0.09 + 0.13);
+		});
+	} catch(e) { try { console.warn('playEndSound error', e); } catch(_){} }
+}
+
+function pollDeviceId() {
+	var url = "http://" + host + ":" + httpPort + "/req";
+	$.get(url, function(rs) {
+		try {
+			var dt = typeof rs === 'string' ? JSON.parse(rs) : rs;
+			if (dt._device_id) {
+				$('#device-id-display').text(dt._device_id);
+				$('#device-id-display-settings').text(dt._device_id);
+				$('#popupDevId').text(dt._device_id);
+				$('#popupVersion').text(dt._version || '');
+				window._appVersion = dt._version || '';
+				showSystemStatus(true);
+			} else {
+				setTimeout(pollDeviceId, 3000);
+			}
+			initTabPower(dt);
+			initTabEnvironment(dt);
+		} catch (e) { console.log('init parse error', e, rs); setTimeout(pollDeviceId, 3000); }
+	}).fail(function() { setTimeout(pollDeviceId, 3000); });
+}
+
+$(function() {
+	pollDeviceId();
+	// 定时轮询设备状态 (5秒刷新一次)
+	setInterval(function(){
+	    refreshDeviceStatus();
+	}, 5000);
+});
+
+function refreshDeviceStatus() {
+    var deviceUrl = "http://" + host + ":" + httpPort + "/api/devices";
+    $.get(deviceUrl, function(rs) {
+        if(rs && Array.isArray(rs)) {
+            parseAndRender(rs);
+            showSystemStatus(true); // 显示在线状态
+        } else {
+            showSystemStatus(false);
+        }
+    }).fail(function(){
+        showSystemStatus(false); // 连接失败显示离线
+        markAllOffline();
+    });
+}
+
+function showSystemStatus(isOnline) {
+    var el = $('#connStatus');
+    if(isOnline) {
+        el.removeClass('offline').addClass('online').text('系统在线 ▾').show();
+    } else {
+        $('#devInfoPopup').hide();
+        el.removeClass('online').addClass('offline').text('等待设备连接').show();
+    }
+}
+
+$(document).ready(function() {
+    $('#connStatus').on('click', function() {
+        if (!$(this).hasClass('online')) return;
+        var devId = $('#device-id-display').text() || $('#popupDevId').text();
+        var ver = '';
+        try { ver = window._appVersion || ''; } catch(e){}
+        $('#popupDevId').text(devId);
+        $('#popupVersion').text(ver);
+        $('#devInfoPopup').toggle();
+    });
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('#connStatus, #devInfoPopup').length) {
+            $('#devInfoPopup').hide();
+        }
+    });
+});
+
+function markAllOffline() {
+    // 将所有设备状态置为未连接（排除天气模块 status8889）
+    $('.status-badge').not('#status8889').removeClass('connected count').addClass('disconnected').text('未连接');
+    $('#status1053').removeClass('connected').addClass('count').text('0');
+}
+
+function settingInput(id, val) {
+	playClickSound();
+	
+	if (id === 'LowDYSZ') {
+		var voltage = parseFloat(val);
+		if (isNaN(voltage) || voltage < 0 || voltage > 30) {
+			alert('电压范围必须在 0-30V 之间');
+			$('#LowDYSZ').val('0');
+			return;
+		}
+		val = voltage.toFixed(1);
+		$('#LowDYSZ').val(val);
+	} else if (id === 'LowDLSZ') {
+		var current = parseFloat(val);
+		if (isNaN(current) || current < 0 || current > 2) {
+			alert('电流范围必须在 0-2A 之间');
+			$('#LowDLSZ').val('0');
+			return;
+		}
+		val = current.toFixed(1);
+		$('#LowDLSZ').val(val);
+	}
+	
+	var url = "http://" + host + ":" + httpPort + "/" + getUrlParam1(id.toString()) + "/" + id.toString();
+	
+	var v = (typeof val === 'string' && /^\d+(?:\.\d+)?$/.test(val)) ? Number(val) : val;
+	var jsonBody = buildCompatBody(id, v);
+	
+	_lastIssued[id] = { t: Date.now(), value: v };
+    $.ajax({
+        type: "POST",
+        url: url,
+        contentType: "application/json",
+        data: JSON.stringify(jsonBody),
+        success: function(rs) {
+            console.log('[POST OK]', url, jsonBody, rs);
+        },
+        error: function(err) {
+            console.warn('[POST FAIL]', url, jsonBody, err);
+        }
+    });
+}
+function getUrlParam1(idStr) {
+	var DYSZ = ",LowKZ,LowDC,HighXZ,HighKZ,HighCurrent,PowerCZ,LowXSTB,XS_A,XS_B,XS_C,XS_D,LowDYSZ,LowDLSZ,LowDC_AC,";
+	var HJGL = ",GSKZ,PFKZ,BBLampKZ,CRLampKZ,CLQQ,CLHQ,Lifting,Computer,VFD_Power,VFD_Speed,";
+	if (DYSZ.indexOf("," + idStr + ",") >= 0) {
+		return "JXDY"; 
+	}
+	if (HJGL.indexOf("," + idStr + ",") >= 0) {
+		return "SYHJ"; 
+	}
+}
+var _autoOffTimers = {};
+
+function scheduleAutoOff(objId){
+	if (objId !== 'HighKZ' && objId !== 'HighCurrent') return;
+	var cdSpan = objId === 'HighKZ' ? $('#HighKZCountdown') : $('#HighCurrentCountdown');
+	var remain = 10;
+	cdSpan.text(remain + 's');
+	if (_autoOffTimers[objId]) { clearInterval(_autoOffTimers[objId]); }
+	var url = 'http://' + host + ':' + httpPort + '/' + getUrlParam1(objId) + '/' + objId;
+	var timerId = setInterval(function(){
+		remain -= 1;
+		cdSpan.text(remain + 's');
+		playTickSound();
+		if (remain <= 0) {
+			clearInterval(timerId);
+			_autoOffTimers[objId] = null;
+			playEndSound();
+			
+			$('#' + objId).removeClass('active');
+			var body = {}; body[objId] = false;
+            $.ajax({
+                type: "POST",
+                url: url,
+                contentType: "application/json",
+                data: JSON.stringify(body)
+            });
+		}
+	}, 1000);
+	_autoOffTimers[objId] = timerId;
+}
+$(".switch").click(function() {
+	$(this).toggleClass("active");
+	playClickSound();
+	var objId = this.id.toString();
+	
+	var url = "http://" + host + ":" + httpPort + "/" + getUrlParam1(objId) + "/" + objId;
+	var state = $("#" + objId).hasClass('active');
+	var jsonBody = buildCompatBody(objId, state);
+	_lastIssued[objId] = { t: Date.now(), value: state };
+    $.ajax({
+        type: "POST",
+        url: url,
+        contentType: "application/json",
+        data: JSON.stringify(jsonBody)
+    });
+
+	if (objId === 'HighKZ' || objId === 'HighCurrent') {
+		var cdSpan = objId === 'HighKZ' ? $('#HighKZCountdown') : $('#HighCurrentCountdown');
+		if (state) {
+			scheduleAutoOff(objId);
+		} else {
+			cdSpan.text('10s');
+			if (_autoOffTimers[objId]) { clearInterval(_autoOffTimers[objId]); _autoOffTimers[objId] = null; }
+		}
+	}
+})
+$(".da-list li").click(function() {
+	$(".da-list li").removeClass("active")
+	$(this).addClass("active");
+	playClickSound();
+})
+
+let websocket = null;
+if (useBackend) {
+	// Reconnection logic wrapper
+	connectWs();
+}
+
+function connectWs() {
+    if (websocket && websocket.readyState === WebSocket.OPEN) return;
+    
+    websocket = new WebSocket("ws://" + host + ":" + wsPort + "/ws");
+    
+    websocket.onopen = function () { 
+        console.log('ws open'); 
+        showSystemStatus(true);
+    }
+    
+    websocket.onclose = function () { 
+        console.log('ws close'); 
+        showSystemStatus(false);
+        // Try reconnect in 3s
+        setTimeout(connectWs, 3000);
+    }
+    
+    websocket.onmessage = function (ev) {
+		try {
+			if (typeof ev.data === 'string') {
+                if (ev.data.indexOf('/data') >= 0) {
+                    var dt = JSON.parse(ev.data);
+                    initTabPower(dt);
+                    initTabEnvironment(dt);
+                    initTabInteractive(dt);
+                    initTabSystem(dt);
+                } 
+                else {
+                    var msg = JSON.parse(ev.data);
+                    
+                    if (msg.type === 'scan_complete') {
+                        if (typeof parseAndRender === 'function') {
+                            parseAndRender(msg.data); 
+                        }
+                    }
+                    
+                    else if (msg.type === 'cmd_result') {
+                        // console.log('CMD Result:', msg);
+                    }
+                }
+			}
+		} catch(e) { console.log('ws parse error', e); }
+	}
+	
+	websocket.onerror = function(er) {
+		console.log('ws error', er);
+	}
+}
+
+window.onbeforeunload = function() {
+	if (websocket && (websocket.readyState === WebSocket.OPEN || websocket.readyState === WebSocket.CONNECTING)) {
+		websocket.close();
+	}
+};
+
+function initTabPower(dt) {
+	function setSwitchState(id, state){
+		function coerceBool(v){
+			if (typeof v === 'boolean') return v;
+			if (v === 1 || v === '1' || v === 'true' || v === 'on' || v === 'ON') return true;
+			if (v === 0 || v === '0' || v === 'false' || v === 'off' || v === 'OFF') return false;
+			return null;
+		}
+		var b = coerceBool(state);
+		if (b === null) return;
+		var li = _lastIssued[id];
+		var ttl = (_stickyKeys[id] ? 5*60*1000 : 10000);
+		if (li && (Date.now() - li.t) < ttl) {
+			var desired = coerceBool(li.value);
+			if (typeof desired === 'boolean' && desired !== b) {
+				return;
+			}
+		}
+		var $el = $('#' + id);
+		if (b) { $el.addClass('active'); }
+		else { $el.removeClass('active'); }
+		$el.find('input[type="checkbox"]').prop('checked', !!b);
+	}
+	if (dt.Low_SSDY != undefined) {
+		$("#realVoltageDiv").html(dt.Low_SSDY + ' V');	
+	}
+	if (dt.LowDYSZ != undefined) {
+		$("#LowDYSZ").val(dt.LowDYSZ);
+	}
+	if (dt.Low_SSDL != undefined) {
+		$("#realCurrentDiv").html(dt.Low_SSDL + ' A');
+	}
+	if (dt.LowDLSZ != undefined) {
+		var val = parseFloat(dt.LowDLSZ);
+		if (val > 0) {
+			$("#LowDLSZ").val(dt.LowDLSZ);
+		} else if ($("#LowDLSZ").val() == ""){
+             $("#LowDLSZ").val(2);
+        }
+	}
+	setSwitchState('LowKZ', dt.LowKZ);
+	setSwitchState('LowDC_AC', dt.LowDC_AC);
+	setSwitchState('HighXZ', dt.HighXZ);
+	setSwitchState('HighKZ', dt.HighKZ);
+	setSwitchState('HighCurrent', dt.HighCurrent);
+	setSwitchState('PowerCZ', dt.PowerCZ);
+	setSwitchState('LowXSTB', dt.LowXSTB);
+	setSwitchState('XS_A', dt.XS_A);
+	setSwitchState('XS_B', dt.XS_B);
+	setSwitchState('XS_C', dt.XS_C);
+	setSwitchState('XS_D', dt.XS_D);
+}
+
+function initTabEnvironment(dt) {
+	function setSwitchState(id, state){
+		function coerceBool(v){
+			if (typeof v === 'boolean') return v;
+			if (v === 1 || v === '1' || v === 'true' || v === 'on' || v === 'ON') return true;
+			if (v === 0 || v === '0' || v === 'false' || v === 'off' || v === 'OFF') return false;
+			return null;
+		}
+		var b = coerceBool(state);
+		if (b === null) return;
+		var li = _lastIssued[id];
+		var ttl = (_stickyKeys[id] ? 5*60*1000 : 10000);
+		if (li && (Date.now() - li.t) < ttl) {
+			var desired = coerceBool(li.value);
+			if (typeof desired === 'boolean' && desired !== b) {
+				return;
+			}
+		}
+		var $el2 = $('#' + id);
+		if (b) { $el2.addClass('active'); }
+		else { $el2.removeClass('active'); }
+		$el2.find('input[type="checkbox"]').prop('checked', !!b);
+	}
+	if (dt.Temperature != undefined && dt.Temperature !== null) {
+		$("#envTempFnt").html(dt.Temperature + ' °C');
+	}
+	if (dt.Humidity != undefined && dt.Humidity !== null) {
+		$("#envHumidityFnt").html(dt.Humidity + ' %');
+	}
+	// 天气数据通过 /api/weather 单独获取
+	if (!window._weatherLoaded) {
+		window._weatherLoaded = true;
+		fetchWeatherData();
+		setInterval(fetchWeatherData, 600000); // 10分钟刷新
+	}
+	if (dt.U != undefined) {
+		$("#envVoltageFnt").html(dt.U + ' V');
+	}
+	if (dt.I != undefined) {
+		$("#envCurrentFnt").html(dt.I + ' A');
+	}
+	if (dt.P != undefined) {
+		$("#envCapacityFnt").html(dt.P + ' W');
+	}
+	if (dt.Ep != undefined) {
+		$("#envKwhFnt").html(dt.Ep + ' 度');
+	}
+	if (dt.GSKZ_state != undefined && dt.GSKZ_state) {
+		$("#envWaterSupplyFnt").addClass('blue');
+		$("#envWaterSupplyFnt").text("开启");
+	} else {
+		$("#envWaterSupplyFnt").removeClass('blue');
+		$("#envWaterSupplyFnt").text("关闭");
+	}
+	if (dt.PFKZ_state != undefined && dt.PFKZ_state) {
+		$("#envAirExhaustFnt").addClass('blue');
+		$("#envAirExhaustFnt").text("开启");
+	} else {
+		$("#envAirExhaustFnt").removeClass('blue');
+		$("#envAirExhaustFnt").text("关闭");
+	}
+	
+	setSwitchState('GSKZ', dt.GSKZ);
+	setSwitchState('PFKZ', dt.PFKZ);
+	setSwitchState('BBLampKZ', dt.BBLampKZ);
+	setSwitchState('CRLampKZ', dt.CRLampKZ);
+	setSwitchState('CLQQ', dt.CLQQ);
+	setSwitchState('CLHQ', dt.CLHQ);
+	setSwitchState('Lifting', dt.Lifting);
+	setSwitchState('Computer', dt.Computer);
+}
+
+function initTabInteractive(dt) {
+    // no-op
+}
+
+function initTabSystem(dt) {
+    // no-op
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+	var root = document.createElement('div');
+	root.innerHTML = '\n<div class="ai-fab" id="aiFab" title="实验助手">AI</div>\n<div class="ai-panel" id="aiPanel">\n  <div class="ai-header">实验助手 <span id="aiClose" title="关闭">×</span></div>\n  <div class="ai-body" id="aiBody"></div>\n  <div class="ai-input">\n    <input type="text" id="aiText" placeholder="问我：实验室安全、理化生小知识…"/>\n    <button id="aiSend">发送</button>\n  </div>\n</div>';
+	document.body.appendChild(root);
+	var fab = document.getElementById('aiFab');
+	var panel = document.getElementById('aiPanel');
+	var close = document.getElementById('aiClose');
+	var bodyEl = document.getElementById('aiBody');
+	var input = document.getElementById('aiText');
+	function appendMsg(role, text){
+		var div = document.createElement('div');
+		div.className = 'ai-msg ' + (role === 'user' ? 'ai-user' : 'ai-bot');
+		div.textContent = text;
+		bodyEl.appendChild(div);
+		bodyEl.scrollTop = bodyEl.scrollHeight;
+	}
+	function appendInfo(text){ appendMsg('bot', text); }
+	var __localKB = [];
+	(function(){
+		try{
+			fetch('js/local_kb.json', { cache: 'no-cache' })
+			  .then(function(r){ return r.ok ? r.json() : []; })
+			  .then(function(data){ if (Array.isArray(data)) { __localKB = data; appendInfo('已加载本地知识库条目：' + data.length); } })
+			  .catch(function(){ /* local_kb.json not found, ignore */ });
+		}catch(e){ try { console.warn('load local_kb failed', e); } catch(_){} }
+	})();
+
+	function tokenize(s){
+		if (!s) return [];
+		var parts = [];
+		var cur = '';
+		for (var ch of s){
+			var code = ch.charCodeAt(0);
+			var isAscii = code <= 0x007f;
+			if (isAscii){
+				if (/\w/.test(ch)) { cur += ch.toLowerCase(); }
+				else { if (cur) parts.push(cur), cur=''; }
+			} else {
+				if (cur) parts.push(cur), cur='';
+				parts.push(ch);
+			}
+		}
+		if (cur) parts.push(cur);
+		return parts;
+	}
+
+	function scoreQuery(qTokens, entry){
+		var score = 0;
+		var keys = entry.keywords || [];
+		for (var k of keys){
+			for (var qt of qTokens){
+				if (!qt) continue;
+				if (k.indexOf(qt) >= 0 || qt.indexOf(k) >= 0) score += Math.max(1, Math.min(k.length, qt.length) / 2);
+			}
+		}
+		return score;
+	}
+
+	function offlineAnswer(q){
+		var qTokens = tokenize(q);
+		var best = null, bestScore = 0;
+		for (var e of __localKB){
+			var s = scoreQuery(qTokens, e);
+			if (s > bestScore) { best = e; bestScore = s; }
+		}
+		if (best && bestScore >= 1) return best.answer;
+		return '这里是本地小知识库的回答。我可以解答实验室安全与理化生基础常识。若需更复杂答案，可点击“启用WebLLM”在浏览器本地加载模型获得更丰富答案。';
+	}
+	
+	function applyLocalUI(key, value){
+		try{
+			var $el = $('#' + key);
+			if ($el && $el.hasClass('switch')){
+				if (value) { $el.addClass('active'); } else { $el.removeClass('active'); }
+				$el.find('input[type="checkbox"]').prop('checked', !!value);
+				return;
+			}
+			if (key === 'LowDYSZ') { $('#LowDYSZ').val(value); return; }
+			if (key === 'LowDLSZ') { $('#LowDLSZ').val(value); return; }
+			if (key === 'VFD_Speed') { $('#VFD_Speed').val(String(value)); return; }
+		}catch(e){ try{ console.warn('applyLocalUI error', key, value, e); }catch(_){} }
+	}
+
+    var _numpadTargetId = null; 
+    
+    function initCustomNumPad() {
+        if (document.getElementById('custom-numpad')) return;
+
+        var html = `
+        <div id="custom-numpad" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); 
+            width:300px; background:#fff; border:1px solid #ccc; box-shadow:0 0 15px rgba(0,0,0,0.5); z-index:99999; border-radius:5px;">
+            <div style="background:#f1f1f1; padding:10px; border-bottom:1px solid #ddd; font-weight:bold; text-align:center;">
+                输入数值
+                <span style="float:right; cursor:pointer;" onclick="closeNumPad()">×</span>
+            </div>
+            <div style="padding:10px;">
+                <input type="text" id="numpad-display" readonly style="width:100%; height:40px; font-size:20px; text-align:right; margin-bottom:10px; padding:5px;">
+                <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:5px;">
+                    <button class="btn btn-default" onclick="npKey('1')" style="height:50px; font-size:18px;">1</button>
+                    <button class="btn btn-default" onclick="npKey('2')" style="height:50px; font-size:18px;">2</button>
+                    <button class="btn btn-default" onclick="npKey('3')" style="height:50px; font-size:18px;">3</button>
+                    
+                    <button class="btn btn-default" onclick="npKey('4')" style="height:50px; font-size:18px;">4</button>
+                    <button class="btn btn-default" onclick="npKey('5')" style="height:50px; font-size:18px;">5</button>
+                    <button class="btn btn-default" onclick="npKey('6')" style="height:50px; font-size:18px;">6</button>
+                    
+                    <button class="btn btn-default" onclick="npKey('7')" style="height:50px; font-size:18px;">7</button>
+                    <button class="btn btn-default" onclick="npKey('8')" style="height:50px; font-size:18px;">8</button>
+                    <button class="btn btn-default" onclick="npKey('9')" style="height:50px; font-size:18px;">9</button>
+                    
+                    <button class="btn btn-default" onclick="npKey('.')" style="height:50px; font-size:18px;">.</button>
+                    <button class="btn btn-default" onclick="npKey('0')" style="height:50px; font-size:18px;">0</button>
+                    <button class="btn btn-warning" onclick="npKey('del')" style="height:50px; font-size:18px;">←</button>
+                </div>
+                <div style="margin-top:5px; display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
+                     <button class="btn btn-danger" onclick="closeNumPad()" style="height:45px;">取消</button>
+                     <button class="btn btn-success" onclick="npConfirm()" style="height:45px;">确定</button>
+                </div>
+            </div>
+        </div>
+        `;
+        $('body').append(html);
+
+        $('#LowDYSZ, #LowDLSZ').attr('readonly', 'readonly').on('click focus', function(e){
+            e.preventDefault();
+            this.blur();
+            openNumPad(this.id);
+        });
+    }
+
+    window.openNumPad = function(targetId) {
+        _numpadTargetId = targetId;
+        var currentVal = $('#' + targetId).val();
+        $('#numpad-display').val(currentVal);
+        $('#custom-numpad').show();
+    };
+
+    window.closeNumPad = function() {
+        $('#custom-numpad').hide();
+        _numpadTargetId = null;
+    };
+
+    window.npKey = function(k) {
+        var d = $('#numpad-display');
+        var v = d.val();
+        if (k === 'del') {
+            d.val(v.slice(0, -1));
+        } else {
+            if (k === '.' && v.indexOf('.') !== -1) return;
+            d.val(v + k);
+        }
+    };
+
+    window.npConfirm = function() {
+        if (_numpadTargetId) {
+            var val = $('#numpad-display').val();
+            var el = document.getElementById(_numpadTargetId);
+            if (el) {
+                el.value = val;
+                if (el.onchange) el.onchange(); 
+            }
+        }
+        closeNumPad();
+    };
+
+    $(document).ready(function(){
+        setTimeout(initCustomNumPad, 1000); 
+    });
+
+	function parseNumberWithUnit(t){
+		var m = t.match(/(\d+(?:\.\d+)?)\s*(m?a|毫安|安|A|v|伏)/i);
+		if (!m) return null;
+		var val = parseFloat(m[1]);
+		var unit = (m[2] || '').toLowerCase();
+		if (unit === 'ma' || unit === '毫安') val = val/1000;
+		return { value: val, unit: unit };
+	}
+	function inferOnOff(t){
+		if (/(打开|开启|开|启用|启动|上电|合闸)/.test(t)) return true;
+		if (/(关闭|关|停用|停止|禁用|断电|分闸)/.test(t)) return false;
+		return null;
+	}
+	var CONTROL_MAP = [
+		{ key:'HighKZ',      synonyms:['高压','高压电','高压电源'] },
+		{ key:'HighCurrent', synonyms:['大电流','大电','大电流电源'] },
+		{ key:'LowKZ',       synonyms:['低压电源','低压开关','低压'] },
+		{ key:'LowDC',       synonyms:['直流输出','直流','DC'] },
+		{ key:'HighXZ',      synonyms:['高压限值','高压限制'] },
+		{ key:'PowerCZ',     synonyms:['电源插座','电源重置','插座开关','电源控制'] },
+		{ key:'LowXSTB',     synonyms:['学生同步','同步学生','一键同步'] },
+		{ key:'XS_A',        synonyms:['A组','A 组','甲组'] },
+		{ key:'XS_B',        synonyms:['B组','B 组','乙组'] },
+		{ key:'XS_C',        synonyms:['C组','C 组','丙组'] },
+		{ key:'XS_D',        synonyms:['D组','D 组','丁组'] },
+		{ key:'LowDYSZ',     synonyms:['低压电压','电压设置','电压','伏'] },
+		{ key:'LowDLSZ',     synonyms:['低压电流','电流设置','电流','安'] },
+		{ key:'LowDC_AC',    synonyms:['低压交直流','交直流切换','AC/DC'] },
+		{ key:'GSKZ',        synonyms:['供水','水源','水阀'] },
+		{ key:'PFKZ',        synonyms:['排风','通风','风机'] },
+		{ key:'BBLampKZ',    synonyms:['黑板灯','板书灯'] },
+		{ key:'CRLampKZ',    synonyms:['教室灯','室内灯'] },
+		{ key:'CLQQ',        synonyms:['窗帘前','窗帘拉起','拉起窗帘','前区窗帘'] },
+		{ key:'CLHQ',        synonyms:['窗帘后','窗帘放下','放下窗帘','后区窗帘'] },
+		{ key:'Lifting',     synonyms:['升降','升起','落下','讲台升降'] },
+		{ key:'Computer',    synonyms:['电脑','主机','计算机'] },
+		{ key:'VFD_Power',   synonyms:['变频器','VFD','电机','风机变频','变频开关'] },
+		{ key:'VFD_Speed',   synonyms:['速度','转速','档位','频率'] }
+	];
+	function inferKey(t){
+		for (var i=0;i<CONTROL_MAP.length;i++){
+			var item = CONTROL_MAP[i];
+			for (var j=0;j<item.synonyms.length;j++){
+				if (t.indexOf(item.synonyms[j]) !== -1) return item.key;
+			}
+		}
+		if (/电压|伏/.test(t)) return 'LowDYSZ';
+		if (/电流|安/.test(t)) return 'LowDLSZ';
+		return null;
+	}
+	function parseControlIntent(t){
+		var txt = (t||'').replace(/\s+/g,'');
+		var key = inferKey(txt);
+		var groups = [];
+		if (/全部|全体|所有(学生|分组|小组)?/.test(txt)) groups = ['XS_A','XS_B','XS_C','XS_D'];
+		if (/A组/.test(txt)) groups.push('XS_A');
+		if (/B组/.test(txt)) groups.push('XS_B');
+		if (/C组/.test(txt)) groups.push('XS_C');
+		if (/D组/.test(txt)) groups.push('XS_D');
+
+		var n = parseNumberWithUnit(txt) || txt.match(/(\d+(?:\.\d+)?)/);
+		var val = null;
+		if (n){
+			if (n.value != null) {
+				val = n.value;
+			} else {
+				val = parseFloat(n[1]);
+			}
+			if (!isFinite(val)) {
+				val = null;
+			}
+		}
+		if (/电压|伏/.test(txt) && val != null){ val = Math.max(0, Math.min(30, val)); }
+		if (/电流|安/.test(txt) && val != null){ val = Math.max(0, Math.min(5, val)); }
+
+		var actions = [];
+		if (/(同步|一键同步|锁定)/.test(txt)){
+			if (val != null) actions.push({ key:'LowDYSZ', value: val });
+			actions.push({ key:'LowKZ', value: true });
+			actions.push({ key:'LowXSTB', value: true });
+			for (var g1 of groups){
+				actions.push({ key: g1, value: true });
+			}
+			return actions.length ? actions : null;
+		}
+
+		if (!key) {
+			var onOffVal = inferOnOff(txt);
+			if (groups.length && onOffVal !== null){
+				for (var g2 of groups){
+					actions.push({ key: g2, value: onOffVal });
+				}
+				return actions;
+			}
+			return null;
+		}
+
+		if (key === 'LowDYSZ' || /电压|伏/.test(txt)){
+			if (val != null) actions.push({ key:'LowDYSZ', value: val });
+			return actions.length ? actions : null;
+		}
+		if (key === 'LowDLSZ' || /电流|安/.test(txt)){
+			if (val != null) actions.push({ key:'LowDLSZ', value: val });
+			return actions.length ? actions : null;
+		}
+
+		if (key === 'VFD_Speed' || /档位|速度|转速|频率|hz|赫兹|低速|中速|高速/.test(txt)){
+			var sp = 0;
+			var m1 = txt.match(/((一|1)档|低速|一挡)/); if(m1) sp = 1;
+			var m2 = txt.match(/((二|2)档|中速|二挡)/); if(m2) sp = 2;
+			var m3 = txt.match(/((三|3)档|高速|三挡)/); if(m3) sp = 3;
+			if (!sp && val!=null) {
+				if (val<=1.5) sp = 1; else if (val<2.5) sp=2; else sp=3;
+			}
+			if (sp>=1 && sp<=3) {
+				actions.push({ key:'VFD_Speed', value: sp });
+				if (!/关/.test(txt)) actions.push({ key:'VFD_Power', value: true });
+			}
+			return actions.length ? actions : null;
+		}
+
+		var onOff2 = inferOnOff(txt);
+		if (onOff2 !== null) {
+			actions.push({ key:key, value:onOff2 });
+			return actions;
+		}
+		return null;
+	}
+	function postControl(key, value){
+		try {
+			var domain = getUrlParam1(key); 
+			if (!domain) domain = 'JXDY';
+			var url = 'http://' + host + ':' + httpPort + '/' + domain + '/' + key;
+			var body = buildCompatBody(key, value);
+			return new Promise(function(resolve){
+				$.post(url, body, function(rs){
+					console.log('[POST OK]', url, body, rs);
+					resolve({ ok:true, rs:rs });
+				}).fail(function(err){
+					console.warn('[POST FAIL]', url, body, err);
+					resolve({ ok:false });
+				});
+			});
+		} catch(e){ return Promise.resolve({ ok:false, err:e }); }
+	}
+	async function aiProvider(prompt){
+		var action = parseControlIntent(prompt);
+		if (action && action.length){
+			var needEnvTab = false;
+			for (var x of action){
+				if (['GSKZ','PFKZ','BBLampKZ','CRLampKZ','CLQQ','CLHQ','Lifting','Computer','VFD_Power','VFD_Speed'].indexOf(x.key) !== -1) { needEnvTab = true; break; }
+			}
+			if (needEnvTab){ $("a[href='#profile']").tab('show'); }
+			var order = action.slice().sort(function(a,b){
+				if (a.key==='VFD_Speed' && b.key==='VFD_Power') return -1;
+				if (a.key==='VFD_Power' && b.key==='VFD_Speed') return 1;
+				return 0;
+			});
+			var ok = 0, fail = 0;
+			for (var a of order){
+				var res = await postControl(a.key, a.value);
+				if (res.ok) {
+					ok++;
+					applyLocalUI(a.key, a.value);
+					if (a.value === true && (a.key === 'HighKZ' || a.key === 'HighCurrent')){
+						scheduleAutoOff(a.key);
+					}
+				} else { fail++; }
+			}
+			return '已提交到后台执行。成功 '+ ok +' 项，未成功 '+ fail +' 项。';
+		}
+		return offlineAnswer(prompt);
+	}
+	function send(){
+		var t = (input.value || '').trim(); if (!t) return;
+		appendMsg('user', t); input.value='';
+		aiProvider(t).then(function(ans){ appendMsg('bot', ans); });
+	}
+	fab.addEventListener('click', function(){ panel.classList.add('show'); input.focus(); });
+	close.addEventListener('click', function(){ panel.classList.remove('show'); });
+	document.getElementById('aiSend').addEventListener('click', send);
+	input.addEventListener('keydown', function(e){ if (e.key === 'Enter') send(); });
+
+    var apiBase = "http://" + host + ":" + httpPort;
+    
+});
+
+function fetchWeatherData() {
+    var weatherUrl = "http://" + host + ":" + httpPort + "/api/weather";
+    $.get(weatherUrl, function(w) {
+        if (!w || !w.temp) return;
+        $("#envWeatherDesc").html(w.desc || '-');
+        $("#envTempFnt").html(w.temp + ' °C');
+        $("#envHumidityFnt").html(w.humidity + ' %');
+        $("#envFeelsLikeFnt").html(w.feels_like + ' °C');
+        $("#envWindSpeedFnt").html(w.wind_speed + ' km/h');
+        $("#envPressureFnt").html(w.pressure + ' hPa');
+        $("#envVisibilityFnt").html(w.visibility + ' km');
+        $("#envUVFnt").html(w.uv);
+        $("#status8889").removeClass('disconnected').addClass('connected').text('在线');
+    }).fail(function() {
+        $("#status8889").removeClass('connected').addClass('disconnected').text('离线');
+    });
+}
+
+function parseAndRender(devices) {
+    if (!Array.isArray(devices)) devices = [];
+    
+    var counts = {
+        8887: 0, 8888: 0, 8234: 0, 1053: 0,
+        8890: 0, 8891: 0, 8892: 0
+    };
+
+    devices.forEach(function(d){
+        if (!d.online) return;
+        var port = d.port || 0;
+        if (counts.hasOwnProperty(port)) counts[port]++;
+    });
+    
+    updateModuleStatus('status8890', counts[8890], false);
+    updateModuleStatus('status8891', counts[8891], false);
+    updateModuleStatus('status1053', counts[1053], true);
+    updateModuleStatus('status8892', counts[8892], false);
+    updateModuleStatus('status8888', counts[8888], false);
+    updateModuleStatus('status8234a', counts[8234], false);
+    updateModuleStatus('status8887', counts[8887], false);
+    updateModuleStatus('status8234b', counts[8234], false);
+}
+
+function updateModuleStatus(id, count, showCount) {
+    var elem = $('#' + id);
+    if (!elem.length) return;
+    
+    elem.removeClass('connected disconnected count');
+    
+    if (showCount) {
+        elem.addClass('count').text(count || 0);
+    } else if (count > 0) {
+        elem.addClass('connected').text('已连接');
+    } else {
+        elem.addClass('disconnected').text('未连接');
+    }
+}
+</script>
+</html>
