@@ -18,6 +18,7 @@ android/platforms/android/local.properties
 # Temp files
 *.png
 *.apk
+!releases/*.apk
 temp_extract/
 temp_original/
 temp_restore/
