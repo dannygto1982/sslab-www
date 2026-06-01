@@ -422,9 +422,9 @@ async def control_endpoint(domain: str, device_id: str, payload: Dict[str, Any])
              cmd = DeviceProtocol.legacy_json_cmd("device1", bool(val))
         elif device_id == "Lifting":
              if val:
-                 cmd = DeviceProtocol.legacy_json_cmd("motor_fwd", True)
+                 cmd = '{"motor_fwd":true,"motor_bwd":false}\n'
              else:
-                 cmd = DeviceProtocol.legacy_json_cmd("motor_bwd", True)
+                 cmd = '{"motor_fwd":false,"motor_bwd":true}\n'
 
         target_ips = [f"192.168.0.{i}" for i in range(100, 201)]
         for _ in range(2):
