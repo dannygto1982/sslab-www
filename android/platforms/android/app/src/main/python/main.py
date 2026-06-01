@@ -17,9 +17,9 @@ import reporter
 app = FastAPI(title="Control System API")
 
 
-# ===== 8887 学生同步 TCP 客户�?=====
+# ===== 8887 学生同步 TCP 客户端 =====
 class SyncTcpClient:
-    """TCP 客户端，主动连接到学生同步服�?192.168.0.12:8887"""
+    """TCP 客户端，主动连接到学生同步服务 192.168.0.12:8887"""
     def __init__(self, host: str = "192.168.0.12", port: int = 8887):
         self.host = host
         self.port = port
@@ -75,7 +75,7 @@ class SyncTcpClient:
                 return False
 
     async def broadcast(self, data: bytes) -> int:
-        """兼容旧接口，向同步服务发送数�?""
+        """兼容旧接口，向同步服务发送数据"""
         success = await self.send(data)
         return 1 if success else 0
 
@@ -101,7 +101,7 @@ sync_server = SyncTcpClient(host="192.168.0.12", port=8887)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# 设备ID（startup时初始化�?
+# 设备ID（startup时初始化）
 device_id: str = "unknown"
 
 # State Storage (In-Memory)
@@ -142,7 +142,7 @@ _weather_cache: Dict[str, Any] = {}
 
 
 async def fetch_weather():
-    """�?wttr.in 获取当地天气数据并更�?current_state"""
+    """从 wttr.in 获取当地天气数据并更新 current_state"""
     global _weather_cache
     try:
         loop = asyncio.get_event_loop()
@@ -156,7 +156,7 @@ async def fetch_weather():
         cur = data.get("current_condition", [{}])[0]
         temp_c = cur.get("temp_C", "")
         humidity = cur.get("humidity", "")
-        # wttr.in 没有 PM2.5 等室内数�? �?uvIndex/visibility 等替代不合�?
+        # wttr.in 没有 PM2.5 等室内数据, 用 uvIndex/visibility 等替代不合适
         # 只填充温度和湿度, 其他保持 None
 
         current_state["Temperature"] = float(temp_c) if temp_c else None
@@ -213,7 +213,7 @@ async def startup_event():
 
     asyncio.create_task(periodic_scan())
 
-    # 启动 8887 学生同步 TCP 客户端（连接�?192.168.0.12:8887�?
+    # 启动 8887 学生同步 TCP 客户端（连接到 192.168.0.12:8887）
     await sync_server.start()
     set_sync_server(sync_server)
 
@@ -222,15 +222,15 @@ async def startup_event():
         print("[Weather] Initial fetch...")
         await fetch_weather()
         while queue_manager.is_running:
-            await asyncio.sleep(600)  # 10分钟更新一�?
+            await asyncio.sleep(600)  # 10分钟更新一次
             if not queue_manager.is_running: break
             await fetch_weather()
 
     asyncio.create_task(periodic_weather())
 
-    # ===== 初始化管理平台上报模�?=====
+    # ===== 初始化管理平台上报模块 =====
     global device_id
-    # 优先使用 Android ANDROID_ID（硬件级唯一标识，重�?重装不变�?
+    # 优先使用 Android ANDROID_ID（硬件级唯一标识，重启/重装不变）
     device_id = None
     try:
         from java import jclass
@@ -244,7 +244,7 @@ async def startup_event():
     except Exception as e:
         print(f"[Main] ANDROID_ID unavailable: {e}")
 
-    # 回退：持久化文件存储（使�?app files dir，比 HOME 更稳定）
+    # 回退：持久化文件存储（使用 app files dir，比 HOME 更稳定）
     if not device_id:
         try:
             import tempfile
@@ -277,7 +277,7 @@ async def startup_event():
     )
 
     async def execute_remote_command(cmd_type: str, cmd_data: dict) -> str:
-        """执行管理平台下发的远程命�?""
+        """执行管理平台下发的远程命令"""
         target_ip = cmd_data.get("target_ip", "")
         target_port = int(cmd_data.get("target_port", 0))
         data = cmd_data.get("data", "")
