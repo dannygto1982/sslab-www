@@ -256,6 +256,7 @@ void setupWiFiStation() {
         clearWifiErrorState();
         runtimeState.deviceStatus = "ONLINE";
         addWebLog("INFO", "WiFi 连接到 " + currentWifiSsid + " IP: " + event.ip.toString());
+        updateStatusLedState(WL_CONNECTED);  // 立即亮灯
     });
 
     stationDisconnectedHandler = WiFi.onStationModeDisconnected([](const WiFiEventStationModeDisconnected &event) {
@@ -263,6 +264,7 @@ void setupWiFiStation() {
         runtimeState.lastErrorCode = wifiLastDisconnectReason;
         runtimeState.deviceStatus = "OFFLINE";
         addWebLog("WARN", "WiFi 断开: " + wifiLastDisconnectReason);
+        updateStatusLedState(WL_DISCONNECTED);  // 立即慢闪
 
         if (event.reason == WIFI_DISCONNECT_REASON_AUTH_FAIL || event.reason == WIFI_DISCONNECT_REASON_NO_AP_FOUND) {
              if (wifiAuthFailureCount < 255) ++wifiAuthFailureCount;
@@ -304,29 +306,62 @@ void stopConfigPortal() {
 }
 
 void maintainWiFi() {
-    // When already connected, just check status without blocking.
-    // When not connected, call run() every 3s with default timeout to allow
-    // enough time for association + DHCP (~2-3s needed).
     static unsigned long lastRunAttemptMs = 0;
+    static unsigned long wifiDisconnectedSinceMs = 0;  // 断线计时器
+    static unsigned long lastReconnectLogMs = 0;        // 重连日志限频
+    static uint8_t reconnectAttempts = 0;               // 当前轮重连次数
+
     wl_status_t status = WiFi.status();
+
     if (status != WL_CONNECTED) {
         unsigned long now = millis();
+
+        // 记录断线起始时间
+        if (wifiDisconnectedSinceMs == 0) {
+            wifiDisconnectedSinceMs = now;
+            reconnectAttempts = 0;
+        }
+
+        // 超过 5 分钟未连接：自动重启
+        if (now - wifiDisconnectedSinceMs > 300000UL) {
+            addWebLog("ERROR", "WiFi 断线超过 5 分钟，自动重启");
+            delay(500);
+            ESP.restart();
+            return;
+        }
+
+        // 每 60 秒输出一次重连日志
+        if (now - lastReconnectLogMs > 60000UL) {
+            lastReconnectLogMs = now;
+            unsigned long downSec = (now - wifiDisconnectedSinceMs) / 1000;
+            addWebLog("WARN", "WiFi 已断线 " + String(downSec) + "s，尝试重连(" + String(reconnectAttempts) + "次)");
+        }
+
+        // 每 3 秒尝试一次连接；连接期间置 IDLE 状态让 LED 快闪
         if (now - lastRunAttemptMs >= 3000) {
             lastRunAttemptMs = now;
-            status = wifiMulti.run();  // default 5000ms per AP, enough for DHCP
+            ++reconnectAttempts;
+            updateStatusLedState(WL_IDLE_STATUS);  // 快闪：正在连接
+            status = wifiMulti.run(3000);           // 3s 超时，减少循环阻塞
+        }
+    } else {
+        // 已连接：清除断线计时
+        if (wifiDisconnectedSinceMs != 0) {
+            addWebLog("INFO", "WiFi 重连成功 (尝试 " + String(reconnectAttempts) + " 次)");
+            wifiDisconnectedSinceMs = 0;
+            reconnectAttempts = 0;
         }
     }
+
     if (status == WL_CONNECTED) {
         if (lastWifiStatus != WL_CONNECTED) {
             wifiEverConnected = true;
         }
         wifiAttemptStartedAt = millis();
-        // runtimeState.deviceStatus = "ONLINE"; // Removed: deviceStatus is for operational state (IDLE/RUNNING)
         if (configPortalActive && !configPortalSticky) {
             stopConfigPortal();
         }
     } else {
-        // runtimeState.deviceStatus = "OFFLINE"; // Removed
         if (!configPortalActive && (millis() - wifiAttemptStartedAt > kWifiConnectTimeoutMs)) {
             startConfigPortal(false);
         }
@@ -806,18 +841,29 @@ void handleConfigButton() {
     // TODO: Implement button logic if needed
 }
 
+// LED 状态说明（kStatusLedActiveLow=true，低电平亮）
+// 长亮           = WiFi 已连接，正常运行
+// 慢闪 800ms     = WiFi 已断开，等待重连
+// 快闪 150ms     = WiFi 正在连接中（wifiMulti.run 执行期间）
+// 极速闪 80ms    = 配置门户已激活
 void updateStatusLedState(wl_status_t wifiStatus) {
     if (configPortalActive) {
         statusLedBlinkEnabled = true;
-        statusLedBlinkIntervalMs = 100;
+        statusLedBlinkIntervalMs = 80;
         return;
     }
     if (wifiStatus == WL_CONNECTED) {
+        // 长亮：已连接
         statusLedBlinkEnabled = false;
         digitalWrite(kStatusLedPin, kStatusLedActiveLow ? LOW : HIGH);
-    } else {
+    } else if (wifiStatus == WL_IDLE_STATUS) {
+        // 快闪：正在连接中
         statusLedBlinkEnabled = true;
-        statusLedBlinkIntervalMs = 500;
+        statusLedBlinkIntervalMs = 150;
+    } else {
+        // 慢闪：已断开，等待重连
+        statusLedBlinkEnabled = true;
+        statusLedBlinkIntervalMs = 800;
     }
 }
 
