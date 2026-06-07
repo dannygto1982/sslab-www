@@ -2,7 +2,7 @@ import json
 import struct
 from typing import Dict, Any
 
-from app.devices import DeviceProtocol, crc16_modbus
+from devices import DeviceProtocol, crc16_modbus
 
 
 def build_computer_frame(is_on: bool) -> bytes:
