@@ -222,7 +222,7 @@ async def startup_event():
     asyncio.create_task(periodic_scan())
 
     # RS485 初始化：读取配置并启用串口
-    _rs485_cfg = load_config(config_path).get("rs485", {})
+    _rs485_cfg = load_config(os.path.join(BASE_DIR, "config.json")).get("rs485", {})
     if not _rs485_cfg:
         # Android 默认配置：自动检测 USB 串口
         _rs485_cfg = {
