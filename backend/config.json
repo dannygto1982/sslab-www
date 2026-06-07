@@ -1,4 +1,37 @@
 {
+  "rs485": {
+    "enabled": true,
+    "legacy_8887_enabled": false,
+    "legacy_1053_enabled": false,
+    "port": "COM3",
+    "baudrate": 9600,
+    "bytesize": 8,
+    "parity": "N",
+    "stopbits": 1,
+    "timeout": 0.25,
+    "retries": 2,
+    "expect_response": false,
+    "inter_frame_delay_ms": 20,
+    "device_map": {
+      "Computer":  {"slave_id": 1, "note": "MJ-E1S1 继电器 device1"},
+      "Lifting":   {"slave_id": 1, "note": "MJ-E1S1 继电器 motor_fwd/bwd"},
+      "LowXSTB":   {"slave_id": 161, "note": "学生同步 0xA1=DC / 0xA2=AC 由帧构建器自动选"},
+      "VFD_Power": {"slave_id": 1,   "note": "变频器启停"},
+      "VFD_Speed": {"slave_id": 1,   "note": "变频器频率档位"}
+    },
+    "vfd": {
+      "slave_id": 1,
+      "reg_power": 8192,
+      "reg_speed": 8193,
+      "speed_map": {
+        "1": 10,
+        "2": 20,
+        "3": 30,
+        "4": 40,
+        "5": 50
+      }
+    }
+  },
   "devices": [
     {
       "ip": "192.168.0.7",

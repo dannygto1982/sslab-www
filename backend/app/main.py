@@ -4,7 +4,15 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.scanner import perform_network_scan
 from app.devices import queue_manager, DeviceProtocol
-from app.server_8887 import student_server
+from app.rs485 import rs485_manager
+from app.config_manager import ConfigManager
+from app.protocol_485 import (
+    build_computer_frame,
+    build_lifting_frame,
+    build_lowxstb_frame,
+    build_vfd_power_frame,
+    build_vfd_speed_frame,
+)
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 import asyncio
@@ -71,6 +79,14 @@ current_state: Dict[str, Any] = {
     "LowDC_AC": 0
 }
 
+
+# Initialise ConfigManager singleton (sync, safe before event loop)
+_cfg_mgr = ConfigManager.init(BASE_DIR)
+
+
+def load_runtime_config() -> Dict[str, Any]:
+    return _cfg_mgr.full()
+
 @app.on_event("startup")
 async def startup_event():
     print("Starting background tasks...")
@@ -91,7 +107,9 @@ async def startup_event():
     # Batch=2 (Conservative concurrency to prevent router packet loss)
     # Delay=50ms (Launch next batch quickly)
     asyncio.create_task(queue_manager.start_worker(batch_size=2, delay_ms=50))
-    
+
+    rs485_manager.configure(_cfg_mgr.get_section("rs485", {}))
+
     # Start Periodic Auto-Scan Task (Every 60s)
     async def periodic_scan():
         # Initial wait to let server start
@@ -105,9 +123,6 @@ async def startup_event():
             print("[AutoScan] Periodic scan started...")
             await perform_network_scan()
             
-    # Start the Student Sync Server (Port 8887)
-    asyncio.create_task(student_server.start_server())
-    
     asyncio.create_task(periodic_scan())
 
 @app.on_event("shutdown")
@@ -164,7 +179,9 @@ async def read_root():
 
 @app.get("/req")
 async def get_state_endpoint():
-    return current_state
+    payload = dict(current_state)
+    payload["RS485_Status"] = rs485_manager.status()
+    return payload
 
 @app.get("/api/scan")
 async def scan_network_endpoint(clear: bool = False, ports: str = None):
@@ -198,6 +215,156 @@ async def get_devices_endpoint():
     conf = load_config(config_path)
     return conf.get("devices", [])
 
+@app.get("/api/rs485/log")
+async def rs485_log_endpoint(limit: int = 50):
+    """Return recent RS485 transaction log entries (newest first)."""
+    limit = max(1, min(limit, 100))
+    return {
+        "status": rs485_manager.status(),
+        "log": rs485_manager.get_log(limit),
+    }
+
+
+# ─────────────────────────────────────────────────────────────
+# Admin API  (/api/admin/*)
+# ─────────────────────────────────────────────────────────────
+
+@app.get("/api/admin/config")
+async def admin_get_config():
+    """Return full config.json contents."""
+    return _cfg_mgr.full()
+
+
+@app.put("/api/admin/config")
+async def admin_put_config(body: Dict[str, Any]):
+    """Overwrite the entire config.json. Returns saved config."""
+    for key, val in body.items():
+        _cfg_mgr.set_section(key, val)
+    rs485_manager.configure(_cfg_mgr.get_section("rs485", {}))
+    return {"ok": True, "config": _cfg_mgr.full()}
+
+
+@app.get("/api/admin/rs485")
+async def admin_get_rs485():
+    """Return rs485 config section + live status."""
+    return {
+        "config": _cfg_mgr.get_section("rs485", {}),
+        "status": rs485_manager.status(),
+    }
+
+
+@app.put("/api/admin/rs485")
+async def admin_put_rs485(body: Dict[str, Any]):
+    """Update rs485 section (merged). Hot-applies to rs485_manager."""
+    _cfg_mgr.update_section("rs485", body)
+    rs485_manager.configure(_cfg_mgr.get_section("rs485", {}))
+    return {"ok": True, "rs485": _cfg_mgr.get_section("rs485", {})}
+
+
+@app.get("/api/admin/devices")
+async def admin_get_devices():
+    """Return devices list from config.json."""
+    return _cfg_mgr.get_section("devices", [])
+
+
+@app.post("/api/admin/devices")
+async def admin_add_device(body: Dict[str, Any]):
+    """Add a new device entry."""
+    devices = list(_cfg_mgr.get_section("devices", []))
+    devices.append(body)
+    _cfg_mgr.set_section("devices", devices)
+    return {"ok": True, "devices": devices}
+
+
+@app.put("/api/admin/devices/{idx}")
+async def admin_update_device(idx: int, body: Dict[str, Any]):
+    """Update device at index *idx*."""
+    devices = list(_cfg_mgr.get_section("devices", []))
+    if idx < 0 or idx >= len(devices):
+        return JSONResponse(status_code=404, content={"error": "index out of range"})
+    devices[idx] = body
+    _cfg_mgr.set_section("devices", devices)
+    return {"ok": True, "devices": devices}
+
+
+@app.delete("/api/admin/devices/{idx}")
+async def admin_delete_device(idx: int):
+    """Delete device at index *idx*."""
+    devices = list(_cfg_mgr.get_section("devices", []))
+    if idx < 0 or idx >= len(devices):
+        return JSONResponse(status_code=404, content={"error": "index out of range"})
+    removed = devices.pop(idx)
+    _cfg_mgr.set_section("devices", devices)
+    return {"ok": True, "removed": removed, "devices": devices}
+
+
+@app.post("/api/admin/reload")
+async def admin_reload_config():
+    """Hot-reload config.json from disk."""
+    ok = _cfg_mgr.reload()
+    return {"ok": ok, "loaded_at": _cfg_mgr.loaded_at}
+
+
+@app.post("/api/admin/rs485/test")
+async def admin_rs485_send_raw(body: Dict[str, Any]):
+    """Send a raw hex frame for diagnostics. body: {hex: '...', tag: '...'}."""
+    hex_str = str(body.get("hex", "")).replace(" ", "")
+    tag = str(body.get("tag", "manual"))
+    try:
+        frame = bytes.fromhex(hex_str)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": f"invalid hex: {e}"})
+    result = await rs485_manager.send_frame(
+        frame,
+        expect_response=bool(body.get("expect_response", True)),
+        response_timeout=float(body.get("timeout", 0.5)),
+        retries=1,
+        tag=tag,
+    )
+    return result
+
+
+@app.get("/api/admin/health")
+async def admin_health():
+    """Check connectivity of fixed-IP devices and RS485 port."""
+    import asyncio as _aio
+
+    async def tcp_ping(ip: str, port: int, timeout: float = 1.0) -> Dict[str, Any]:
+        t0 = __import__('time').monotonic()
+        try:
+            r, w = await _aio.wait_for(_aio.open_connection(ip, port), timeout=timeout)
+            w.close()
+            try:
+                await w.wait_closed()
+            except Exception:
+                pass
+            ms = round((__import__('time').monotonic() - t0) * 1000, 1)
+            return {"ip": ip, "port": port, "ok": True, "ms": ms}
+        except Exception as e:
+            return {"ip": ip, "port": port, "ok": False, "error": str(e)}
+
+    targets = [
+        ("192.168.0.7", 8234),
+        ("192.168.0.211", 8888),
+        ("192.168.0.12", 8887),
+    ]
+    pings = await _aio.gather(*[tcp_ping(ip, p) for ip, p in targets])
+    return {
+        "rs485": rs485_manager.status(),
+        "devices": list(pings),
+        "state_keys": len(current_state),
+    }
+
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_page():
+    """Serve the Admin UI page."""
+    admin_path = os.path.join(FRONTEND_DIR, "admin.html")
+    if os.path.exists(admin_path):
+        with open(admin_path, "r", encoding="utf-8") as f:
+            return f.read()
+    return HTMLResponse("<h2>admin.html not found in frontend/</h2>", status_code=404)
+
 @app.post("/{domain}/{device_id}")
 async def control_endpoint(domain: str, device_id: str, payload: Dict[str, Any]):
     val = payload.get("value")
@@ -217,55 +384,39 @@ async def control_endpoint(domain: str, device_id: str, payload: Dict[str, Any])
     
     # --- HARDWARE CONTROL LOGIC ADAPTER ---
     config_path = os.path.join(BASE_DIR, "config.json")
+    conf = load_config(config_path)
+    rs485_cfg = conf.get("rs485", {})
     
-    # SIMULATION: Pressure Test Multiplier
-    # To simulate 14 devices / 28 students pressure, we repeat commands.
-    SIMULATION_MULTIPLIER = 14
-
     if device_id in ["Computer", "Lifting"]:
-        conf = load_config(config_path)
-        # Port 1053 Devices (Legacy or Simulator)
-        mj_devs = [d for d in conf.get("devices", []) if d.get("port") == 1053]
-        
-        # Determine protocol key based on device_id
-        # Computer -> device1 | Lifting -> device2 (as per common legacy wiring, or use motor_fwd if it's motor)
-        # Based on logs: Lifting behavior maps to "device2" or "motor_fwd". 
-        # Referencing PROJECT_DEV_DOC.md 1.1: 
-        #   {"device1": true} -> PC
-        #   {"device2": true} -> Aux
-        #   {"motor_fwd": true} -> Lifting
-        
         if device_id == "Computer":
-             # Computer Power (Device 1)
-             key = "device1"
-             cmd = DeviceProtocol.legacy_json_cmd(key, bool(val))
-             
-        elif device_id == "Lifting":
-             # Support Up/Down/Stop
-             # Values: True/'up' => UP, False/'down' => DOWN, 'stop' => STOP
-             cmd_str = str(val).lower() if val is not None else ""
-             
-             if cmd_str == 'stop':
-                 # Send both False to stop
-                 cmd = json.dumps({"motor_fwd": False, "motor_bwd": False}).encode('utf-8') + b'\n'
-             elif val is True or cmd_str in ['up', '1', 'on', 'true']:
-                 cmd = DeviceProtocol.legacy_json_cmd("motor_fwd", True)
-             else:
-                 # Default to Down
-                 cmd = DeviceProtocol.legacy_json_cmd("motor_bwd", True)
+            cmd = build_computer_frame(bool(val))
+        else:
+            cmd = build_lifting_frame(val)
 
-        # Optimization: Send to fixed range 192.168.0.100-130 as per user requirement
-        # Send 2 set of commands (Same logic as LowXSTB)
-        target_ips = [f"192.168.0.{i}" for i in range(100, 131)]
-        
-        # Send Twice
-        for _ in range(2):
-            for ip in target_ips:
-                await queue_manager.add_task(ip, 1053, cmd)
+        rs485_on = bool(rs485_cfg.get("enabled", False))
+        legacy_on = bool(rs485_cfg.get("legacy_1053_enabled", False))
 
-        # Legacy simulation code removed to favor robust range broadcast
-        # Logging for debug
-        print(f"[1053_BROADCAST] Sent {device_id} command to {len(target_ips)} IPs (100-130) (x2 passes)")
+        if rs485_on:
+            result = await rs485_manager.send_frame(
+                cmd,
+                expect_response=bool(rs485_cfg.get("expect_response", False)),
+                response_timeout=float(rs485_cfg.get("timeout", 0.25)),
+                retries=int(rs485_cfg.get("retries", 2)),
+                tag=device_id,
+            )
+            if not result.get("ok") and not legacy_on:
+                return JSONResponse(
+                    status_code=500,
+                    content={"status": "error", "message": result.get("error", "rs485 send failed"), "state": current_state},
+                )
+
+        if legacy_on or not rs485_on:
+            # Fallback: broadcast via legacy TCP 1053
+            target_ips = [f"192.168.0.{i}" for i in range(100, 131)]
+            for _ in range(2):
+                for ip in target_ips:
+                    await queue_manager.add_task(ip, 1053, cmd)
+            print(f"[FALLBACK_1053] {device_id} sent to 31 IPs x2")
     
 
     # --- GROUP A/B/C/D SWITCHES & HIGH VOLTAGE (Port 8234) ---
@@ -357,55 +508,61 @@ async def control_endpoint(domain: str, device_id: str, payload: Dict[str, Any])
             for dev in devs_8888:
                 await queue_manager.add_task(dev["ip"], 8888, cmd)
 
-    # --- STUDENT SYNC LOW POWER (Port 8887) ---
+    # --- STUDENT SYNC LOW POWER (RS485 主通道 / 8887 回退) ---
     elif device_id == "LowXSTB":
-        # Group Sync Broadcast
-        # Logic: Read Teacher Params -> Send via Server 8887 to 192.168.0.12
-        
-        is_ac = (current_state.get("LowDC_AC", 0) == 1)
-        
-        # Voltage
-        raw_volts = current_state.get("LowDYSZ", 0)
-        try:
-            volts_int = int(float(raw_volts) * 100)
-        except:
-            volts_int = 0
-            
-        # Current
-        raw_amps = current_state.get("LowDLSZ", 2.0)
-        try:
-             amps_float = float(raw_amps)
-             if amps_float <= 0: amps_float = 2.0
-             amps_int = int(amps_float * 1000)
-        except:
-             amps_int = 2000
+        cmd = build_lowxstb_frame(current_state, bool(val))
+        rs485_on = bool(rs485_cfg.get("enabled", False))
+        legacy_on = bool(rs485_cfg.get("legacy_8887_enabled", False))
 
-        # Group A Slate ID: 0xA1 (DC) or 0xA2 (AC)
-        # Force A1/A2 protocol for all students in range
-        slave_a = 0xA2 if is_ac else 0xA1
-        cmd = DeviceProtocol.student_sync_cmd(slave_a, bool(val), is_ac, volts_int, amps_int)
+        if rs485_on:
+            result = await rs485_manager.send_frame(
+                cmd,
+                expect_response=bool(rs485_cfg.get("expect_response", False)),
+                response_timeout=float(rs485_cfg.get("timeout", 0.25)),
+                retries=int(rs485_cfg.get("retries", 2)),
+                tag="LowXSTB",
+            )
+            if not result.get("ok") and not legacy_on:
+                return JSONResponse(
+                    status_code=500,
+                    content={"status": "error", "message": result.get("error", "rs485 send failed"), "state": current_state},
+                )
 
-        # Send via Server 8887 to connected 192.168.0.12
-        await student_server.broadcast_sync_cmd(cmd, "192.168.0.12")
+        if legacy_on or not rs485_on:
+            # Fallback: legacy 8887 reverse-TCP (server_8887.py must still be running)
+            try:
+                from app.server_8887 import student_server
+                await student_server.broadcast_sync_cmd(cmd, "192.168.0.12")
+                print("[FALLBACK_8887] LowXSTB sent via legacy TCP server")
+            except Exception as _e:
+                print(f"[FALLBACK_8887] failed: {_e}")
 
+    elif device_id in ["VFD_Power", "VFD_Speed"]:
+        vfd_cfg = rs485_cfg.get("vfd", {}) if isinstance(rs485_cfg, dict) else {}
+        slave_id = int(vfd_cfg.get("slave_id", 1))
+        reg_power = int(vfd_cfg.get("reg_power", 0x2000))
+        reg_speed = int(vfd_cfg.get("reg_speed", 0x2001))
+        speed_map = vfd_cfg.get("speed_map", {"1": 10, "2": 20, "3": 30})
+        if not isinstance(speed_map, dict):
+            speed_map = {"1": 10, "2": 20, "3": 30}
 
-    elif device_id in ["XS_A", "XS_B", "XS_C", "XS_D"]:
-        target_group = device_id.split("_")[1] # A, B, C, D
-        conf = load_config(config_path)
-        
-        # New Logic: Port 8887 (Device C) is the Sync Controller for ALL groups.
-        # We find valid Sync devices (port 8887) and send the command with the correct Slave ID.
-        sync_devs = [d for d in conf.get("devices", []) if d.get("port") == 8887]
-        
-        # Map Group to Slave ID (Logic from Doc 1.4)
-        addr_map = {'A': 0xA1, 'B': 0xB1, 'C': 0xC1, 'D': 0xD1}
-        modbus_addr = addr_map.get(target_group, 0xA1)
-        
-        cmd = DeviceProtocol.student_sync_cmd(modbus_addr, bool(val))
-        
-        print(f"[GROUP] {target_group} -> Found {len(sync_devs)} sync controllers. Sending ID {hex(modbus_addr)}")
-        for dev in sync_devs:
-            await queue_manager.add_task(dev["ip"], 8887, cmd)
+        if device_id == "VFD_Power":
+            cmd = build_vfd_power_frame(bool(val), slave_id, reg_power)
+        else:
+            cmd = build_vfd_speed_frame(val, slave_id, reg_speed, speed_map)
+
+        result = await rs485_manager.send_frame(
+            cmd,
+            expect_response=bool(rs485_cfg.get("expect_response", False)),
+            response_timeout=float(rs485_cfg.get("timeout", 0.25)),
+            retries=int(rs485_cfg.get("retries", 2)),
+            tag=device_id,
+        )
+        if not result.get("ok"):
+            return JSONResponse(
+                status_code=500,
+                content={"status": "error", "message": result.get("error", "rs485 send failed"), "state": current_state},
+            )
     
     
     return {"status": "ok", "state": current_state}

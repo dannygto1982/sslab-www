@@ -1,0 +1,784 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SSLAB 后台管理</title>
+<style>
+:root{--c-bg:#f0f2f5;--c-card:#fff;--c-border:#e0e0e0;--c-primary:#4e70ec;--c-primary-dk:#3a5bd9;--c-success:#28a745;--c-warn:#f0ad4e;--c-danger:#dc3545;--c-muted:#888;--c-text:#222;font-size:14px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--c-bg);color:var(--c-text);font-family:"Microsoft YaHei",system-ui,sans-serif;min-height:100vh}
+.layout{display:flex;min-height:100vh}
+.sidebar{width:200px;background:#1a2035;color:#c8d3ea;flex-shrink:0;display:flex;flex-direction:column}
+.sidebar .logo{padding:20px 16px 14px;font-size:18px;font-weight:700;color:#fff;border-bottom:1px solid #2d3a56;letter-spacing:.05em}
+.sidebar .logo small{display:block;font-size:11px;font-weight:400;color:#7a8db3;margin-top:2px}
+.sidebar nav a{display:block;padding:12px 20px;color:#c8d3ea;text-decoration:none;transition:background .15s,color .15s;font-size:13px;border-left:3px solid transparent}
+.sidebar nav a:hover{background:#243050;color:#fff}
+.sidebar nav a.active{background:#243050;color:#fff;border-left-color:var(--c-primary)}
+.sidebar nav a .icon{margin-right:8px;font-style:normal}
+.sidebar .back-link{margin-top:auto;padding:14px 20px;font-size:12px;color:#7a8db3;text-decoration:none;border-top:1px solid #2d3a56;display:block}
+.sidebar .back-link:hover{color:#fff}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{background:#fff;border-bottom:1px solid var(--c-border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.topbar h1{font-size:16px;font-weight:600}
+.topbar .badges{display:flex;gap:8px;align-items:center}
+.content{flex:1;padding:24px;overflow-y:auto}
+.tab-pane{display:none}.tab-pane.active{display:block}
+.card{background:var(--c-card);border-radius:10px;border:1px solid var(--c-border);margin-bottom:20px;overflow:hidden}
+.card-header{padding:14px 20px;border-bottom:1px solid var(--c-border);display:flex;align-items:center;justify-content:space-between;background:#fafafa}
+.card-header h3{font-size:14px;font-weight:600}
+.card-body{padding:20px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#f5f5f5;padding:9px 12px;text-align:left;font-weight:600;color:#555;border-bottom:1px solid var(--c-border)}
+td{padding:9px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafbff}
+.form-row{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px;align-items:flex-end}
+.form-group{display:flex;flex-direction:column;gap:4px;min-width:120px}
+.form-group label{font-size:12px;color:var(--c-muted);font-weight:500}
+input[type=text],input[type=number],select,textarea{width:100%;padding:7px 10px;border:1px solid var(--c-border);border-radius:6px;font-size:13px;background:#fff;color:var(--c-text);transition:border-color .15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--c-primary);box-shadow:0 0 0 3px rgba(78,112,236,.15)}
+textarea{resize:vertical;font-family:monospace}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;border:none;font-size:13px;cursor:pointer;font-weight:500;transition:background .15s,transform .1s}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--c-primary);color:#fff}.btn-primary:hover{background:var(--c-primary-dk)}
+.btn-success{background:var(--c-success);color:#fff}.btn-success:hover{background:#218838}
+.btn-danger{background:var(--c-danger);color:#fff}.btn-danger:hover{background:#c82333}
+.btn-warn{background:var(--c-warn);color:#333}.btn-warn:hover{background:#d9922a}
+.btn-ghost{background:#f0f0f0;color:var(--c-text)}.btn-ghost:hover{background:#e0e0e0}
+.btn-xs{padding:3px 8px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-success{background:#d4edda;color:#155724}
+.badge-danger{background:#f8d7da;color:#721c24}
+.badge-warn{background:#fff3cd;color:#856404}
+.badge-info{background:#d1ecf1;color:#0c5460}
+.badge-muted{background:#e9ecef;color:#555}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+.dot-green{background:var(--c-success)}.dot-red{background:var(--c-danger)}.dot-yellow{background:var(--c-warn)}.dot-gray{background:#ccc}
+.health-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.health-card{background:#fafbff;border:1px solid var(--c-border);border-radius:8px;padding:14px}
+.health-card .h-label{font-size:12px;color:var(--c-muted);margin-bottom:6px}
+.health-card .h-value{font-size:22px;font-weight:700}
+.health-card .h-sub{font-size:11px;color:var(--c-muted);margin-top:3px}
+.log-table td{font-family:Consolas,monospace;font-size:12px;padding:6px 10px}
+.log-table .hex{color:#7a8db3;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#adm-toast{position:fixed;top:60px;right:20px;min-width:200px;max-width:360px;padding:10px 18px;border-radius:8px;background:#333;color:#fff;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.3);opacity:0;transform:translateY(-8px);transition:opacity .2s,transform .2s;z-index:9999;pointer-events:none}
+#adm-toast.show{opacity:1;transform:translateY(0)}
+#adm-toast[data-type=success]{background:var(--c-success)}
+#adm-toast[data-type=error]{background:var(--c-danger)}
+#adm-toast[data-type=warn]{background:var(--c-warn);color:#333}
+.section-title{font-size:13px;font-weight:700;color:var(--c-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;margin-top:8px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.inline-actions{display:flex;gap:6px}
+.tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:11px;background:#e8ecff;color:#3a5bd9}
+.empty-row td{text-align:center;color:var(--c-muted);padding:24px}
+code{background:#f0f2f5;padding:1px 5px;border-radius:4px;font-family:Consolas,monospace;font-size:12px}
+.switch-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f0}
+.switch-row:last-child{border-bottom:none}
+.toggle{position:relative;display:inline-block;width:44px;height:24px}
+.toggle input{opacity:0;width:0;height:0}
+.toggle .slider{position:absolute;inset:0;background:#ccc;border-radius:24px;transition:.2s;cursor:pointer}
+.toggle .slider::before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.toggle input:checked+.slider{background:var(--c-primary)}
+.toggle input:checked+.slider::before{transform:translateX(20px)}
+.monospace{font-family:Consolas,monospace;font-size:12px}
+@media(max-width:800px){.sidebar{width:170px}.grid-2,.grid-3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">SSLAB Admin<small>后台管理中心</small></div>
+    <nav>
+      <a href="#" class="active" data-tab="devices"  onclick="switchTab('devices',this)"> <i class="icon">🖥</i>设备管理</a>
+      <a href="#"               data-tab="channels"  onclick="switchTab('channels',this)"><i class="icon">🔌</i>通讯通道</a>
+      <a href="#"               data-tab="rs485log"  onclick="switchTab('rs485log',this)"><i class="icon">📋</i>RS485 日志</a>
+      <a href="#"               data-tab="sysstate"  onclick="switchTab('sysstate',this)"><i class="icon">📊</i>系统状态</a>
+    </nav>
+    <a class="back-link" href="/">← 返回主控界面</a>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <h1 id="tab-title">设备管理</h1>
+      <div class="badges">
+        <span id="hb-rs485" class="badge badge-muted">RS485 —</span>
+        <span id="hb-time" style="font-size:12px;color:var(--c-muted)"></span>
+        <button class="btn btn-ghost btn-xs" onclick="reloadAll()">⟳ 刷新</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ═══ TAB: 设备管理 ═══ -->
+      <div class="tab-pane active" id="tab-devices">
+        <div class="card">
+          <div class="card-header">
+            <h3>网络设备列表</h3>
+            <div class="inline-actions">
+              <button class="btn btn-ghost btn-xs" onclick="triggerScan()">🔍 扫描</button>
+              <button class="btn btn-primary btn-xs" onclick="openAddDevice()">＋ 新增</button>
+            </div>
+          </div>
+          <div class="card-body" style="padding:0">
+            <table id="devices-table">
+              <thead><tr><th>#</th><th>IP</th><th>端口</th><th>类型</th><th>ID</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody id="devices-tbody"><tr class="empty-row"><td colspan="7">加载中…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card" id="device-form-card" style="display:none">
+          <div class="card-header"><h3 id="device-form-title">新增设备</h3></div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group" style="flex:1"><label>IP 地址</label><input id="df-ip" placeholder="192.168.0.7"></div>
+              <div class="form-group" style="width:100px"><label>端口</label><input id="df-port" type="number" value="8234"></div>
+              <div class="form-group" style="flex:1"><label>类型</label><input id="df-type" placeholder="USR-IO808"></div>
+              <div class="form-group" style="flex:1"><label>ID</label><input id="df-id" placeholder="Device_8234"></div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-success" onclick="saveDevice()">💾 保存</button>
+              <button class="btn btn-ghost" onclick="cancelDeviceForm()">取消</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: 通讯通道 ═══ -->
+      <div class="tab-pane" id="tab-channels">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <h3>RS485 串口配置</h3>
+              <button class="btn btn-success btn-xs" onclick="saveRS485Config()">💾 保存</button>
+            </div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-group" style="flex:1"><label>串口</label><input id="rs-port" placeholder="COM3"></div>
+                <div class="form-group" style="width:100px"><label>波特率</label>
+                  <select id="rs-baud"><option>9600</option><option>19200</option><option>38400</option><option>115200</option></select>
+                </div>
+                <div class="form-group" style="width:80px"><label>超时(s)</label><input id="rs-timeout" type="number" step="0.05" value="0.25"></div>
+                <div class="form-group" style="width:80px"><label>重试次数</label><input id="rs-retries" type="number" value="2"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group" style="width:130px"><label>帧间隔(ms)</label><input id="rs-frame-delay" type="number" value="20"></div>
+              </div>
+              <div class="section-title">灰度回退开关</div>
+              <div class="switch-row"><span>RS485 启用</span><label class="toggle"><input type="checkbox" id="rs-enabled"><span class="slider"></span></label></div>
+              <div class="switch-row"><span>Legacy 1053 TCP 回退</span><label class="toggle"><input type="checkbox" id="rs-legacy-1053"><span class="slider"></span></label></div>
+              <div class="switch-row"><span>Legacy 8887 TCP 回退</span><label class="toggle"><input type="checkbox" id="rs-legacy-8887"><span class="slider"></span></label></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3>变频器 (VFD) 配置</h3>
+              <button class="btn btn-success btn-xs" onclick="saveVFDConfig()">💾 保存</button>
+            </div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-group" style="width:100px"><label>Slave ID</label><input id="vfd-slave" type="number" value="1"></div>
+                <div class="form-group" style="flex:1"><label>启停寄存器</label><input id="vfd-reg-power" type="number" value="8192"></div>
+                <div class="form-group" style="flex:1"><label>速度寄存器</label><input id="vfd-reg-speed" type="number" value="8193"></div>
+              </div>
+              <div class="section-title">速度档位映射 (档位 → 寄存器值)</div>
+              <div class="form-row">
+                <div class="form-group" style="width:70px"><label>档1</label><input id="vfd-s1" type="number" value="10"></div>
+                <div class="form-group" style="width:70px"><label>档2</label><input id="vfd-s2" type="number" value="20"></div>
+                <div class="form-group" style="width:70px"><label>档3</label><input id="vfd-s3" type="number" value="30"></div>
+                <div class="form-group" style="width:70px"><label>档4</label><input id="vfd-s4" type="number" value="40"></div>
+                <div class="form-group" style="width:70px"><label>档5</label><input id="vfd-s5" type="number" value="50"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>设备通道映射 (device_map)</h3>
+            <div class="inline-actions">
+              <button class="btn btn-ghost btn-xs" onclick="loadChannelMap()">⟳ 刷新</button>
+              <button class="btn btn-primary btn-xs" onclick="openAddChannel()">＋ 新增</button>
+            </div>
+          </div>
+          <div class="card-body" style="padding:0">
+            <table id="channel-table">
+              <thead><tr><th>设备 ID</th><th>Slave ID</th><th>备注</th><th>操作</th></tr></thead>
+              <tbody id="channel-tbody"><tr class="empty-row"><td colspan="4">加载中…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3>发帧测试 (RS485)</h3></div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group" style="flex:2">
+                <label>十六进制帧 (空格分隔，如: A1 10 00 03…)</label>
+                <input id="test-frame" placeholder="A1 06 20 00 00 01 XX XX" style="font-family:monospace">
+              </div>
+              <div class="form-group" style="width:90px"><label>等待响应</label>
+                <select id="test-expect-resp"><option value="0">否</option><option value="1">是</option></select>
+              </div>
+              <div class="form-group" style="align-self:flex-end">
+                <button class="btn btn-warn" onclick="sendTestFrame()">▶ 发送</button>
+              </div>
+            </div>
+            <div id="test-result" class="monospace" style="background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:6px;min-height:52px;white-space:pre-wrap">等待测试…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: RS485 日志 ═══ -->
+      <div class="tab-pane" id="tab-rs485log">
+        <div class="card">
+          <div class="card-header">
+            <h3>RS485 事务日志</h3>
+            <div class="inline-actions">
+              <select id="log-filter-tag" onchange="loadRS485Log()" style="width:120px;padding:4px 8px;font-size:12px;border:1px solid var(--c-border);border-radius:5px">
+                <option value="">全部 tag</option>
+              </select>
+              <select id="log-filter-ok" onchange="loadRS485Log()" style="width:100px;padding:4px 8px;font-size:12px;border:1px solid var(--c-border);border-radius:5px">
+                <option value="">全部状态</option>
+                <option value="ok">仅成功</option>
+                <option value="err">仅失败</option>
+              </select>
+              <input id="log-limit" type="number" value="50" min="5" max="100" style="width:66px;padding:4px 8px;font-size:12px;border:1px solid var(--c-border);border-radius:5px" onchange="loadRS485Log()">
+              <button class="btn btn-ghost btn-xs" onclick="loadRS485Log()">⟳ 刷新</button>
+              <span id="log-auto-badge" class="badge badge-info" style="cursor:pointer" onclick="toggleAutoRefresh()">自动: ON</span>
+            </div>
+          </div>
+          <div class="card-body" style="padding:0">
+            <table class="log-table">
+              <thead><tr><th>时间</th><th>Tag</th><th>状态</th><th>耗时</th><th>重试</th><th>TX 帧</th><th>RX / 错误</th></tr></thead>
+              <tbody id="log-tbody"><tr class="empty-row"><td colspan="7">加载中…</td></tr></tbody>
+            </table>
+          </div>
+          <div style="padding:10px 16px;border-top:1px solid var(--c-border);font-size:12px;color:var(--c-muted)">
+            共 <span id="log-count">0</span> 条 &nbsp;|&nbsp;
+            成功 <span id="log-ok-count" style="color:var(--c-success)">0</span> &nbsp;|&nbsp;
+            失败 <span id="log-err-count" style="color:var(--c-danger)">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: 系统状态 ═══ -->
+      <div class="tab-pane" id="tab-sysstate">
+        <div class="card">
+          <div class="card-header">
+            <h3>通道健康状态</h3>
+            <button class="btn btn-ghost btn-xs" onclick="loadHealth()">⟳ 刷新</button>
+          </div>
+          <div class="card-body">
+            <div class="health-grid">
+              <div class="health-card"><div class="h-label">RS485</div><div class="h-value" id="hc-rs485">—</div><div class="h-sub" id="hc-rs485-sub"></div></div>
+              <div class="health-card"><div class="h-label">USR-IO808 (8234)</div><div class="h-value" id="hc-8234">—</div><div class="h-sub" id="hc-8234-sub"></div></div>
+              <div class="health-card"><div class="h-label">教师电源 (8888)</div><div class="h-value" id="hc-8888">—</div><div class="h-sub" id="hc-8888-sub"></div></div>
+              <div class="health-card"><div class="h-label">在线设备 (1053)</div><div class="h-value" id="hc-online">—</div><div class="h-sub">响应 port 1053 的设备数</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>当前控制状态 (current_state)</h3>
+            <button class="btn btn-ghost btn-xs" onclick="loadState()">⟳ 刷新</button>
+          </div>
+          <div class="card-body">
+            <div class="grid-3" id="state-grid"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3>快速操作</h3></div>
+          <div class="card-body">
+            <div style="display:flex;flex-wrap:wrap;gap:10px">
+              <button class="btn btn-ghost" onclick="triggerScan()">🔍 重新扫描设备</button>
+              <button class="btn btn-ghost" onclick="reloadConfig()">🔄 热重载配置</button>
+              <button class="btn btn-ghost" onclick="loadHealth()">🩺 刷新健康状态</button>
+              <a class="btn btn-ghost" href="/api/admin/config" target="_blank">📄 查看完整配置</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- M7-B 设备通道拓扑状态图 -->
+        <div class="card">
+          <div class="card-header">
+            <h3>设备通道拓扑</h3>
+            <button class="btn btn-ghost btn-xs" onclick="loadTopology()">⟳ 刷新</button>
+          </div>
+          <div class="card-body">
+            <div id="topology-grid" style="display:flex;flex-direction:column;gap:10px;font-size:13px;">
+              <div style="color:var(--c-muted)">加载中…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<div id="adm-toast"></div>
+
+<script>
+'use strict';
+var qs   = new URLSearchParams(location.search);
+var HOST = qs.get('apiHost') || location.hostname || '127.0.0.1';
+var PORT = Number(qs.get('apiPort')) || 1880;
+var BASE = 'http://' + HOST + ':' + PORT;
+var TAB_TITLES = { devices:'设备管理', channels:'通讯通道配置', rs485log:'RS485 日志', sysstate:'系统状态' };
+
+/* ── Toast ── */
+var _toastTimer = null;
+function toast(msg, type) {
+  var el = document.getElementById('adm-toast');
+  el.textContent = msg; el.dataset.type = type || 'info';
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function(){ el.classList.remove('show'); }, type === 'error' ? 5000 : 3000);
+}
+
+/* ── HTTP ── */
+function api(method, path, body) {
+  var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
+  if (body != null) opts.body = JSON.stringify(body);
+  return fetch(BASE + path, opts)
+    .then(function(r){ return r.json().then(function(d){ return { ok:r.ok, status:r.status, data:d }; }); })
+    .catch(function(e){ return { ok:false, status:0, data:null, error:String(e) }; });
+}
+function GET(p)    { return api('GET',    p, null); }
+function POST(p,b) { return api('POST',   p, b); }
+function PUT(p,b)  { return api('PUT',    p, b); }
+function DEL(p)    { return api('DELETE', p, null); }
+
+/* ── Tab 切换 ── */
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab-pane').forEach(function(p){ p.classList.remove('active'); });
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelectorAll('.sidebar nav a').forEach(function(a){ a.classList.remove('active'); });
+  if (el) el.classList.add('active');
+  document.getElementById('tab-title').textContent = TAB_TITLES[tab] || tab;
+  if (tab === 'devices')  loadDevices();
+  if (tab === 'channels') { loadRS485Config(); loadChannelMap(); }
+  if (tab === 'rs485log') loadRS485Log();
+  if (tab === 'sysstate')  { loadHealth(); loadState(); loadTopology(); }
+}
+
+/* ── 顶部栏 ── */
+function updateTopbar() {
+  GET('/api/rs485/log?limit=1').then(function(r) {
+    if (!r.ok) return;
+    var s = r.data.status;
+    var el = document.getElementById('hb-rs485');
+    if (s && s.enabled) { el.textContent = 'RS485 ' + s.port; el.className = 'badge badge-success'; }
+    else                { el.textContent = 'RS485 关闭';       el.className = 'badge badge-muted'; }
+  });
+  document.getElementById('hb-time').textContent = new Date().toLocaleTimeString('zh-CN');
+}
+
+/* ════ TAB 1: 设备管理 ════ */
+var _editDeviceIdx = -1;
+
+function loadDevices() {
+  GET('/api/admin/devices').then(function(r) {
+    var tbody = document.getElementById('devices-tbody');
+    if (!r.ok || !Array.isArray(r.data)) { tbody.innerHTML = '<tr class="empty-row"><td colspan="7">加载失败</td></tr>'; return; }
+    if (!r.data.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="7">暂无设备</td></tr>'; return; }
+    tbody.innerHTML = r.data.map(function(d, i) {
+      var online = d.online;
+      var badge  = online ? '<span class="badge badge-success">在线</span>' : '<span class="badge badge-muted">离线</span>';
+      return '<tr>'
+        + '<td>' + i + '</td><td><code>' + (d.ip||'') + '</code></td><td><code>' + (d.port||'') + '</code></td>'
+        + '<td><span class="tag">' + (d.type||'-') + '</span></td><td>' + (d.id||'-') + '</td>'
+        + '<td>' + badge + '</td>'
+        + '<td><div class="inline-actions">'
+        +   '<button class="btn btn-ghost btn-xs" onclick="editDevice(' + i + ')">编辑</button>'
+        +   '<button class="btn btn-danger btn-xs" onclick="deleteDevice(' + i + ')">删除</button>'
+        + '</div></td></tr>';
+    }).join('');
+  });
+}
+
+function openAddDevice() {
+  _editDeviceIdx = -1;
+  document.getElementById('device-form-title').textContent = '新增设备';
+  ['df-ip','df-type','df-id'].forEach(function(id){ document.getElementById(id).value = ''; });
+  document.getElementById('df-port').value = '1053';
+  document.getElementById('device-form-card').style.display = '';
+}
+
+function editDevice(idx) {
+  GET('/api/admin/devices').then(function(r) {
+    if (!r.ok || !r.data[idx]) return;
+    var d = r.data[idx];
+    _editDeviceIdx = idx;
+    document.getElementById('device-form-title').textContent = '编辑设备 #' + idx;
+    document.getElementById('df-ip').value   = d.ip   || '';
+    document.getElementById('df-port').value = d.port || '';
+    document.getElementById('df-type').value = d.type || '';
+    document.getElementById('df-id').value   = d.id   || '';
+    document.getElementById('device-form-card').style.display = '';
+    document.getElementById('device-form-card').scrollIntoView({ behavior:'smooth' });
+  });
+}
+
+function saveDevice() {
+  var body = {
+    ip:   document.getElementById('df-ip').value.trim(),
+    port: Number(document.getElementById('df-port').value),
+    type: document.getElementById('df-type').value.trim(),
+    id:   document.getElementById('df-id').value.trim()
+  };
+  if (!body.ip) { toast('IP 不能为空', 'error'); return; }
+  var req = _editDeviceIdx >= 0 ? PUT('/api/admin/devices/' + _editDeviceIdx, body) : POST('/api/admin/devices', body);
+  req.then(function(r) {
+    if (r.ok) { toast('保存成功', 'success'); cancelDeviceForm(); loadDevices(); }
+    else      { toast('保存失败: ' + JSON.stringify(r.data), 'error'); }
+  });
+}
+
+function deleteDevice(idx) {
+  if (!confirm('确认删除设备 #' + idx + '？')) return;
+  DEL('/api/admin/devices/' + idx).then(function(r) {
+    if (r.ok) { toast('已删除', 'success'); loadDevices(); }
+    else      { toast('删除失败', 'error'); }
+  });
+}
+
+function cancelDeviceForm() {
+  document.getElementById('device-form-card').style.display = 'none';
+  _editDeviceIdx = -1;
+}
+
+function triggerScan() {
+  toast('扫描中…', 'info');
+  GET('/api/scan?ports=1053&clear=false').then(function(r) {
+    if (r.ok) { toast('扫描完成，发现 ' + (r.data.count||0) + ' 台', 'success'); loadDevices(); }
+    else      { toast('扫描失败', 'error'); }
+  });
+}
+
+/* ════ TAB 2: 通讯通道 ════ */
+function loadRS485Config() {
+  GET('/api/admin/rs485').then(function(r) {
+    if (!r.ok) return;
+    var d = r.data;
+    document.getElementById('rs-port').value        = d.port || 'COM3';
+    document.getElementById('rs-baud').value        = String(d.baudrate || 9600);
+    document.getElementById('rs-timeout').value     = d.timeout != null ? d.timeout : 0.25;
+    document.getElementById('rs-retries').value     = d.retries != null ? d.retries : 2;
+    document.getElementById('rs-frame-delay').value = d.inter_frame_delay_ms != null ? d.inter_frame_delay_ms : 20;
+    document.getElementById('rs-enabled').checked      = !!d.enabled;
+    document.getElementById('rs-legacy-1053').checked  = !!d.legacy_1053_enabled;
+    document.getElementById('rs-legacy-8887').checked  = !!d.legacy_8887_enabled;
+    var vfd = d.vfd || {};
+    document.getElementById('vfd-slave').value     = vfd.slave_id    != null ? vfd.slave_id    : 1;
+    document.getElementById('vfd-reg-power').value = vfd.reg_power   != null ? vfd.reg_power   : 8192;
+    document.getElementById('vfd-reg-speed').value = vfd.reg_speed   != null ? vfd.reg_speed   : 8193;
+    var sm = vfd.speed_map || {};
+    [1,2,3,4,5].forEach(function(i){ document.getElementById('vfd-s'+i).value = sm[String(i)] != null ? sm[String(i)] : i*10; });
+  });
+}
+
+function saveRS485Config() {
+  var updates = {
+    port:                 document.getElementById('rs-port').value.trim(),
+    baudrate:             Number(document.getElementById('rs-baud').value),
+    timeout:              Number(document.getElementById('rs-timeout').value),
+    retries:              Number(document.getElementById('rs-retries').value),
+    inter_frame_delay_ms: Number(document.getElementById('rs-frame-delay').value),
+    enabled:              document.getElementById('rs-enabled').checked,
+    legacy_1053_enabled:  document.getElementById('rs-legacy-1053').checked,
+    legacy_8887_enabled:  document.getElementById('rs-legacy-8887').checked
+  };
+  PUT('/api/admin/rs485', updates).then(function(r) {
+    if (r.ok) toast('RS485 配置已保存', 'success');
+    else      toast('保存失败: ' + JSON.stringify(r.data), 'error');
+  });
+}
+
+function saveVFDConfig() {
+  var vfd = {
+    slave_id:  Number(document.getElementById('vfd-slave').value),
+    reg_power: Number(document.getElementById('vfd-reg-power').value),
+    reg_speed: Number(document.getElementById('vfd-reg-speed').value),
+    speed_map: {}
+  };
+  [1,2,3,4,5].forEach(function(i){ vfd.speed_map[String(i)] = Number(document.getElementById('vfd-s'+i).value); });
+  PUT('/api/admin/rs485', { vfd: vfd }).then(function(r) {
+    if (r.ok) toast('VFD 配置已保存', 'success');
+    else      toast('保存失败', 'error');
+  });
+}
+
+function loadChannelMap() {
+  GET('/api/admin/rs485').then(function(r) {
+    var tbody = document.getElementById('channel-tbody');
+    if (!r.ok) { tbody.innerHTML = '<tr class="empty-row"><td colspan="4">加载失败</td></tr>'; return; }
+    var dm = (r.data && r.data.device_map) ? r.data.device_map : {};
+    var keys = Object.keys(dm);
+    if (!keys.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="4">暂无映射</td></tr>'; return; }
+    tbody.innerHTML = keys.map(function(k) {
+      var e = dm[k] || {};
+      return '<tr><td><code>' + k + '</code></td><td><code>' + (e.slave_id != null ? e.slave_id : '—') + '</code></td>'
+        + '<td style="color:var(--c-muted)">' + (e.note||'') + '</td>'
+        + '<td><button class="btn btn-ghost btn-xs" onclick="editChannel(\'' + k + '\',' + e.slave_id + ',\'' + (e.note||'') + '\')">编辑</button></td></tr>';
+    }).join('');
+  });
+}
+
+function openAddChannel() {
+  var key   = prompt('设备 ID (如 Computer / Lifting / VFD_Power):'); if (!key) return;
+  var slave = prompt('Slave ID (整数):');                              if (slave == null) return;
+  var note  = prompt('备注 (可选):') || '';
+  PUT('/api/admin/rs485', { device_map_update: { key: key.trim(), slave_id: Number(slave), note: note } })
+    .then(function(r) {
+      if (r.ok) { toast('已添加 ' + key, 'success'); loadChannelMap(); }
+      else      { toast('失败: ' + JSON.stringify(r.data), 'error'); }
+    });
+}
+
+function editChannel(key, curSlave, curNote) {
+  var slave = prompt('Slave ID:', curSlave); if (slave == null) return;
+  var note  = prompt('备注:', curNote) || '';
+  PUT('/api/admin/rs485', { device_map_update: { key: key, slave_id: Number(slave), note: note } })
+    .then(function(r) {
+      if (r.ok) { toast('已更新 ' + key, 'success'); loadChannelMap(); }
+      else      { toast('更新失败', 'error'); }
+    });
+}
+
+function sendTestFrame() {
+  var raw  = document.getElementById('test-frame').value.trim();
+  var resp = document.getElementById('test-expect-resp').value === '1';
+  if (!raw) { toast('请输入帧内容', 'warn'); return; }
+  document.getElementById('test-result').textContent = '发送中…';
+  POST('/api/admin/rs485/test', { hex: raw, expect_response: resp }).then(function(r) {
+    if (r.ok) {
+      var d = r.data;
+      document.getElementById('test-result').textContent =
+        'TX: '    + (d.tx || raw) + '\n'
+        + '状态: ' + (d.ok ? '✅ 成功' : '❌ 失败') + '\n'
+        + '耗时: ' + (d.ms || '—') + ' ms\n'
+        + (d.rx    ? 'RX: '   + d.rx    : '')
+        + (d.error ? '错误: ' + d.error : '');
+    } else {
+      document.getElementById('test-result').textContent = '请求失败: ' + JSON.stringify(r.data);
+    }
+  });
+}
+
+function reloadConfig() {
+  POST('/api/admin/reload', {}).then(function(r) {
+    if (r.ok) { toast('配置已热重载', 'success'); loadRS485Config(); }
+    else      { toast('重载失败', 'error'); }
+  });
+}
+
+/* ════ TAB 3: RS485 日志 ════ */
+var _autoRefresh = true;
+var _autoTimer   = null;
+var _knownTags   = {};
+
+function loadRS485Log() {
+  var limit    = Number(document.getElementById('log-limit').value) || 50;
+  var tagF     = document.getElementById('log-filter-tag').value;
+  var okF      = document.getElementById('log-filter-ok').value;
+  GET('/api/rs485/log?limit=' + limit).then(function(r) {
+    var tbody = document.getElementById('log-tbody');
+    if (!r.ok) { tbody.innerHTML = '<tr class="empty-row"><td colspan="7">加载失败</td></tr>'; return; }
+    var logs = (r.data && r.data.log) ? r.data.log : [];
+    logs.forEach(function(e){ if (e.tag) _knownTags[e.tag] = true; });
+    var tagSel = document.getElementById('log-filter-tag');
+    var curTag = tagSel.value;
+    tagSel.innerHTML = '<option value="">全部 tag</option>'
+      + Object.keys(_knownTags).map(function(t){ return '<option value="' + t + '"' + (t===curTag?' selected':'') + '>' + t + '</option>'; }).join('');
+
+    var filtered = logs.filter(function(e) {
+      if (tagF && e.tag !== tagF) return false;
+      if (okF === 'ok'  && !e.ok) return false;
+      if (okF === 'err' &&  e.ok) return false;
+      return true;
+    });
+    var okN  = filtered.filter(function(e){ return  e.ok; }).length;
+    var errN = filtered.filter(function(e){ return !e.ok; }).length;
+    document.getElementById('log-count').textContent    = filtered.length;
+    document.getElementById('log-ok-count').textContent  = okN;
+    document.getElementById('log-err-count').textContent = errN;
+    if (!filtered.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="7">暂无记录</td></tr>'; return; }
+    tbody.innerHTML = filtered.map(function(e) {
+      var okB = e.ok ? '<span class="badge badge-success">OK</span>' : '<span class="badge badge-danger">ERR</span>';
+      var rx  = e.rx    ? '<span style="color:#4ec94e">' + e.rx    + '</span>' : '';
+      var err = e.error ? '<span style="color:#f44747">' + e.error + '</span>' : '';
+      return '<tr>'
+        + '<td>' + (e.ts||'') + '</td>'
+        + '<td><span class="tag">' + (e.tag||'?') + '</span></td>'
+        + '<td>' + okB + '</td>'
+        + '<td>' + (e.ms != null ? e.ms + ' ms' : '—') + '</td>'
+        + '<td>' + (e.attempts||1) + '</td>'
+        + '<td class="hex" title="' + (e.tx||'') + '">' + (e.tx||'') + '</td>'
+        + '<td>' + (rx||err||'-') + '</td>'
+        + '</tr>';
+    }).join('');
+  });
+}
+
+function toggleAutoRefresh() {
+  _autoRefresh = !_autoRefresh;
+  document.getElementById('log-auto-badge').textContent = '自动: ' + (_autoRefresh ? 'ON' : 'OFF');
+  document.getElementById('log-auto-badge').className   = 'badge ' + (_autoRefresh ? 'badge-info' : 'badge-muted');
+  if (_autoRefresh) startAutoRefresh(); else clearInterval(_autoTimer);
+}
+
+function startAutoRefresh() {
+  clearInterval(_autoTimer);
+  _autoTimer = setInterval(function() {
+    var tab = document.querySelector('.tab-pane.active');
+    if (tab && tab.id === 'tab-rs485log') loadRS485Log();
+  }, 2500);
+}
+
+/* ════ TAB 4: 系统状态 ════ */
+function loadHealth() {
+  GET('/api/admin/health').then(function(r) {
+    if (!r.ok) return;
+    var d = r.data;
+    var rs  = d.rs485 || {};
+    var rsEl  = document.getElementById('hc-rs485');
+    var rsSub = document.getElementById('hc-rs485-sub');
+    if (rs.enabled) {
+      rsEl.innerHTML  = '<span class="dot dot-' + (rs.port_ok ? 'green' : 'red') + '"></span>' + (rs.port||'—');
+      rsSub.textContent = rs.port_ok ? '串口可打开' : '串口不可用';
+      rsEl.style.fontSize = '16px';
+    } else {
+      rsEl.innerHTML  = '<span style="color:var(--c-muted)">已禁用</span>';
+      rsSub.textContent = '在通道配置中启用';
+    }
+    var tcp = d.tcp_ping || {};
+    setHealthCard('hc-8234', tcp['8234'], 'ms', '192.168.0.7:8234');
+    setHealthCard('hc-8888', tcp['8888'], 'ms', '192.168.0.211:8888');
+    var on = d.online_1053;
+    var onEl = document.getElementById('hc-online');
+    onEl.textContent  = on != null ? on : '—';
+    onEl.style.color  = (on > 0) ? 'var(--c-success)' : 'var(--c-danger)';
+  });
+}
+
+function setHealthCard(id, val, unit, label) {
+  var el  = document.getElementById(id);
+  var sub = document.getElementById(id + '-sub');
+  if (val == null || val < 0) {
+    el.innerHTML = '<span style="color:var(--c-danger)">超时</span>';
+    el.style.fontSize = '16px';
+    if (sub) sub.textContent = label + ' 不可达';
+  } else {
+    el.innerHTML = val + '<span style="font-size:14px;color:var(--c-muted)"> ' + unit + '</span>';
+    el.style.fontSize = '22px';
+    if (sub) sub.textContent = label + ' 在线';
+  }
+}
+
+function loadState() {
+  GET('/req').then(function(r) {
+    if (!r.ok) return;
+    var grid = document.getElementById('state-grid');
+    var items = Object.entries(r.data).filter(function(e){ return e[0] !== 'RS485_Status'; });
+    grid.innerHTML = items.map(function(kv) {
+      var k = kv[0], v = kv[1];
+      var disp;
+      if (typeof v === 'boolean' || v === 0 || v === 1) {
+        disp = v ? '<span class="badge badge-success">ON</span>' : '<span class="badge badge-muted">OFF</span>';
+      } else {
+        disp = '<span style="font-family:monospace">' + v + '</span>';
+      }
+      return '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f0f0f0">'
+           + '<span style="color:var(--c-muted)">' + k + '</span>' + disp + '</div>';
+    }).join('');
+  });
+}
+
+/* ── 全局操作 ── */
+function reloadAll() {
+  var active = document.querySelector('.tab-pane.active');
+  if (!active) return;
+  var id = active.id.replace('tab-', '');
+  switchTab(id, document.querySelector('[data-tab="' + id + '"]'));
+  updateTopbar();
+}
+
+/* ── M7-B 设备拓扑 ── */
+function loadTopology() {
+  Promise.all([
+    GET('/api/admin/health'),
+    GET('/api/admin/rs485'),
+    GET('/api/devices')
+  ]).then(function(results) {
+    var health  = results[0].ok ? results[0].data  : {};
+    var rs485   = results[1].ok ? results[1].data  : {};
+    var devices = results[2].ok ? results[2].data  : [];
+    var grid = document.getElementById('topology-grid');
+    if (!grid) return;
+
+    var rs485On = rs485.enabled;
+    var tcp  = health.tcp_ping || {};
+    var dm   = rs485.device_map || {};
+
+    function nodeRow(icon, label, statusOk, detail, indent) {
+      var dot  = statusOk ? 'dot-green' : 'dot-red';
+      var text = statusOk ? 'OK' : '离线';
+      var pad  = indent ? 'padding-left:24px;' : '';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f5f5f5;' + pad + '">'
+           + '<span style="font-size:16px">' + icon + '</span>'
+           + '<span style="flex:1">' + label + '</span>'
+           + '<span class="dot ' + dot + '"></span>'
+           + '<span class="badge ' + (statusOk ? 'badge-success' : 'badge-danger') + '">' + text + '</span>'
+           + '<span style="color:var(--c-muted);font-size:12px">' + (detail || '') + '</span>'
+           + '</div>';
+    }
+
+    var rows = '';
+    // USB-485 主站
+    rows += nodeRow('🔌', 'USB-RS485 主站 (' + (rs485.port||'COM3') + ')', rs485On && !!(health.rs485 && health.rs485.port_ok), rs485On ? rs485.baudrate + ' baud' : '已禁用');
+
+    // RS485 设备（从 device_map）
+    Object.keys(dm).forEach(function(k) {
+      var e = dm[k] || {};
+      rows += nodeRow('⚙', k + ' (slave ' + (e.slave_id||'?') + ')', rs485On, e.note || '', true);
+    });
+
+    // TCP 设备
+    var tcpDevs = [
+      { label:'USR-IO808 (192.168.0.7:8234)',      key:'8234', icon:'🔌' },
+      { label:'教师电源 (192.168.0.211:8888)',      key:'8888', icon:'⚡' },
+    ];
+    tcpDevs.forEach(function(d) {
+      var ms  = tcp[d.key];
+      var ok  = ms != null && ms >= 0;
+      rows += nodeRow(d.icon, d.label, ok, ok ? ms + ' ms' : '');
+    });
+
+    // 1053 设备
+    var on1053 = health.online_1053 || 0;
+    rows += nodeRow('🖥', '升降控制器 × ' + on1053 + ' (port 1053)', on1053 > 0, on1053 > 0 ? on1053 + ' 台在线' : '无响应');
+
+    grid.innerHTML = rows || '<div style="color:var(--c-muted)">无数据</div>';
+  });
+}
+
+/* ── 初始化 ── */
+(function init() {
+  loadDevices();
+  updateTopbar();
+  startAutoRefresh();
+  setInterval(updateTopbar, 10000);
+})();
+</script>
+</body>
+</html>

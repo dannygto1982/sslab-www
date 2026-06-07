@@ -202,6 +202,7 @@ android {
                 install "websockets==10.4"
                 install "aiofiles==23.2.1"
                 install "pydantic==1.10.18"
+                install "pyserial==3.5"  // USB转485串口支持
             }
         }
         ndk {

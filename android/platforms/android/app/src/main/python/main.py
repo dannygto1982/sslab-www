@@ -3,6 +3,14 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from scanner import perform_network_scan, get_online_devices, set_sync_server
 from devices import queue_manager, DeviceProtocol, CommandExecutor
+from rs485 import rs485_manager
+from protocol_485 import (
+    build_computer_frame,
+    build_lifting_frame,
+    build_lowxstb_frame,
+    build_vfd_power_frame,
+    build_vfd_speed_frame,
+)
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 import asyncio
@@ -213,9 +221,30 @@ async def startup_event():
 
     asyncio.create_task(periodic_scan())
 
-    # 启动 8887 学生同步 TCP 客户端（连接到 192.168.0.12:8887）
-    await sync_server.start()
-    set_sync_server(sync_server)
+    # RS485 初始化：读取配置并启用串口
+    _rs485_cfg = load_config(config_path).get("rs485", {})
+    if not _rs485_cfg:
+        # Android 默认配置：自动检测 USB 串口
+        _rs485_cfg = {
+            "enabled": True,
+            "port": "auto",       # rs485.py 会自动检测 /dev/ttyUSB0 等
+            "baudrate": 9600,
+            "bytesize": 8,
+            "parity": "N",
+            "stopbits": 1,
+            "timeout": 0.25,
+            "retries": 2,
+            "expect_response": False,
+            "inter_frame_delay_ms": 20,
+            "legacy_1053_enabled": False,
+            "legacy_8887_enabled": False,
+        }
+    rs485_manager.configure(_rs485_cfg)
+
+    # 启动 8887 学生同步 TCP 客户端（作为回退通道，当 RS485 关闭时使用）
+    if _rs485_cfg.get("legacy_8887_enabled", False):
+        await sync_server.start()
+        set_sync_server(sync_server)
 
     async def periodic_weather():
         await asyncio.sleep(3)
@@ -416,21 +445,34 @@ async def control_endpoint(domain: str, device_id: str, payload: Dict[str, Any])
     config_path = os.path.join(BASE_DIR, "config.json")
 
     if device_id in ["Computer", "Lifting"]:
-        conf = load_config(config_path)
+        _rs485_cfg = load_config(config_path).get("rs485", {})
+        rs485_on  = rs485_manager._settings.get("enabled", False)
+        legacy_on = rs485_manager._settings.get("legacy_1053_enabled", False)
 
         if device_id == "Computer":
-             cmd = DeviceProtocol.legacy_json_cmd("device1", bool(val))
-        elif device_id == "Lifting":
-             if val:
-                 cmd = b'{"motor_fwd":true,"motor_bwd":false}\n'
-             else:
-                 cmd = b'{"motor_fwd":false,"motor_bwd":true}\n'
+            cmd = build_computer_frame(bool(val))
+        else:
+            cmd = build_lifting_frame(val)
 
-        target_ips = [f"192.168.0.{i}" for i in range(100, 201)]
-        for _ in range(2):
-            for ip in target_ips:
-                await queue_manager.add_task(ip, 1053, cmd)
-        print(f"[1053_BROADCAST] Sent {device_id} command to {len(target_ips)} IPs (x2)")
+        if rs485_on:
+            result = await rs485_manager.send_frame(
+                cmd,
+                expect_response=bool(_rs485_cfg.get("expect_response", False)),
+                response_timeout=float(_rs485_cfg.get("timeout", 0.25)),
+                retries=int(_rs485_cfg.get("retries", 2)),
+                tag=device_id,
+            )
+            if not result.get("ok") and not legacy_on:
+                return JSONResponse(status_code=500,
+                    content={"status":"error","message":result.get("error","rs485 failed"),"state":current_state})
+
+        if legacy_on or not rs485_on:
+            # 回退: 广播至 1053 TCP
+            target_ips = [f"192.168.0.{i}" for i in range(100, 201)]
+            for _ in range(2):
+                for ip in target_ips:
+                    await queue_manager.add_task(ip, 1053, cmd)
+            print(f"[FALLBACK_1053] {device_id} -> {len(target_ips)} IPs")
 
     elif device_id in ["XS_A", "XS_B", "XS_C", "XS_D", "HighKZ", "HighXZ", "HighCurrent", "BBLampKZ", "CRLampKZ"]:
         conf = load_config(config_path)
@@ -489,30 +531,57 @@ async def control_endpoint(domain: str, device_id: str, payload: Dict[str, Any])
                 await queue_manager.add_task(dev["ip"], 8888, cmd)
 
     elif device_id == "LowXSTB":
-        is_ac = (current_state.get("LowDC_AC", 0) == 1)
+        _rs485_cfg = load_config(config_path).get("rs485", {})
+        rs485_on  = rs485_manager._settings.get("enabled", False)
+        legacy_on = rs485_manager._settings.get("legacy_8887_enabled", False)
 
-        raw_volts = current_state.get("LowDYSZ", 12.5)
-        try:
-            volts_int = int(float(raw_volts) * 100)
-            if volts_int <= 0: volts_int = 1250
-        except:
-            volts_int = 1250
+        cmd = build_lowxstb_frame(current_state, bool(val))
 
-        raw_amps = current_state.get("LowDLSZ", 2.5)
-        try:
-             amps_float = float(raw_amps)
-             if amps_float <= 0: amps_float = 2.5
-             amps_int = int(amps_float * 1000)
-        except:
-             amps_int = 2500
+        if rs485_on:
+            result = await rs485_manager.send_frame(
+                cmd,
+                expect_response=bool(_rs485_cfg.get("expect_response", False)),
+                response_timeout=float(_rs485_cfg.get("timeout", 0.25)),
+                retries=int(_rs485_cfg.get("retries", 2)),
+                tag="LowXSTB",
+            )
+            if not result.get("ok") and not legacy_on:
+                return JSONResponse(status_code=500,
+                    content={"status":"error","message":result.get("error","rs485 failed"),"state":current_state})
 
-        cmd = DeviceProtocol.teacher_power_cmd(bool(val), volts_int, amps_int, is_ac)
-        client_count = sync_server.get_client_count()
-        if client_count > 0:
-            await sync_server.broadcast(cmd)
-            print(f"[SYNC] Broadcast to {client_count} clients, on={val}, V={volts_int}, A={amps_int}, AC={is_ac}")
+        if legacy_on or not rs485_on:
+            client_count = sync_server.get_client_count()
+            if client_count > 0:
+                await sync_server.broadcast(cmd)
+                print(f"[FALLBACK_8887] LowXSTB broadcast to {client_count} clients")
+            else:
+                print(f"[FALLBACK_8887] No 8887 clients connected")
+
+    elif device_id in ["VFD_Power", "VFD_Speed"]:
+        _rs485_cfg = load_config(config_path).get("rs485", {})
+        vfd_cfg  = _rs485_cfg.get("vfd", {}) if isinstance(_rs485_cfg, dict) else {}
+        slave_id  = int(vfd_cfg.get("slave_id", 1))
+        reg_power = int(vfd_cfg.get("reg_power", 0x2000))
+        reg_speed = int(vfd_cfg.get("reg_speed", 0x2001))
+        speed_map = vfd_cfg.get("speed_map", {"1": 10, "2": 20, "3": 30})
+        if not isinstance(speed_map, dict):
+            speed_map = {"1": 10, "2": 20, "3": 30}
+
+        if device_id == "VFD_Power":
+            cmd = build_vfd_power_frame(bool(val), slave_id, reg_power)
         else:
-            print(f"[SYNC] No clients connected on 8887, command not sent")
+            cmd = build_vfd_speed_frame(val, slave_id, reg_speed, speed_map)
+
+        result = await rs485_manager.send_frame(
+            cmd,
+            expect_response=bool(_rs485_cfg.get("expect_response", False)),
+            response_timeout=float(_rs485_cfg.get("timeout", 0.25)),
+            retries=int(_rs485_cfg.get("retries", 2)),
+            tag=device_id,
+        )
+        if not result.get("ok"):
+            return JSONResponse(status_code=500,
+                content={"status":"error","message":result.get("error","rs485 failed"),"state":current_state})
 
     return {"status": "ok", "state": current_state}
 
