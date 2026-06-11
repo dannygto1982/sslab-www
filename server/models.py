@@ -75,11 +75,14 @@ async def init_db():
         await db.commit()
     # 兼容旧数据库：补加 min_version_code 列
     async with aiosqlite.connect(DB_PATH) as db:
-        try:
+        cursor = await db.execute("PRAGMA table_info(firmware)")
+        columns = [row[1] for row in await cursor.fetchall()]
+        if 'min_version_code' not in columns:
             await db.execute("ALTER TABLE firmware ADD COLUMN min_version_code INTEGER DEFAULT 0")
             await db.commit()
-        except Exception:
-            pass  # 列已存在，忽略
+            print("[DB] Added min_version_code column to firmware table")
+        else:
+            print("[DB] min_version_code column already exists")
     print("[DB] Database initialized")
 
 

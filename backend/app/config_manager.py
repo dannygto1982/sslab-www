@@ -117,5 +117,6 @@ def rs485_manager_configure() -> None:
         from app.rs485 import rs485_manager  # type: ignore
         cfg = ConfigManager.get()
         rs485_manager.configure(cfg.get_section("rs485", {}))
-    except Exception:
-        pass
+    except (ImportError, RuntimeError) as e:
+        # RS485 module not available or ConfigManager not initialized (safe to skip)
+        print(f"[ConfigManager] rs485_manager_configure skipped: {e}")

@@ -179,8 +179,8 @@ class RS485Manager:
             if ser is not None:
                 try:
                     ser.close()
-                except Exception:
-                    pass
+                except OSError:
+                    pass  # Serial port close may fail if already disconnected
 
 
 rs485_manager = RS485Manager()

@@ -223,8 +223,8 @@ class CommandExecutor:
                 sock = writer.get_extra_info('socket')
                 if sock:
                     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            except:
-                pass
+            except (OSError, AttributeError):
+                pass  # 某些平台或 socket 类型不支持 TCP_NODELAY
                 
             writer.write(data)
             await writer.drain()
@@ -259,8 +259,10 @@ class CommandExecutor:
         except Exception as e:
             print(f"ERROR: send_one failed to {ip}:{port} - {e}")
             if writer:
-                try: writer.close()
-                except: pass
+                try:
+                    writer.close()
+                except OSError:
+                    pass
             return False
 
     @staticmethod
@@ -279,8 +281,8 @@ class CommandExecutor:
                 sock = writer.get_extra_info('socket')
                 if sock:
                     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            except:
-                pass
+            except (OSError, AttributeError):
+                pass  # 某些平台或 socket 类型不支持 TCP_NODELAY
 
             for data in data_list:
                 writer.write(data)
@@ -290,8 +292,8 @@ class CommandExecutor:
                 if port == 8234:
                     try:
                         await asyncio.wait_for(reader.read(1024), timeout=2.0)
-                    except Exception:
-                        pass
+                    except (asyncio.TimeoutError, ConnectionError, OSError):
+                        pass  # 响应超时或连接断开属正常情况
                 
                 if interval > 0:
                     await asyncio.sleep(interval)
@@ -299,14 +301,13 @@ class CommandExecutor:
             writer.close()
             await writer.wait_closed()
             return True
-        except Exception:
+        except Exception as e:
+            print(f"ERROR: send_batch failed to {ip}:{port} - {e}")
             if writer:
-                try: writer.close()
-                except: pass
-            return False
-            if writer:
-                try: writer.close()
-                except: pass
+                try:
+                    writer.close()
+                except OSError:
+                    pass
             return False
 
 class StaggeredQueue:
