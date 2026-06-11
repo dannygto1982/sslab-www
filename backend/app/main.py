@@ -13,6 +13,13 @@ from app.protocol_485 import (
     build_vfd_power_frame,
     build_vfd_speed_frame,
 )
+from app.handlers import (
+    handle_computer_lifting,
+    handle_group_8234,
+    handle_teacher_power,
+    handle_student_sync,
+    handle_vfd,
+)
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 import asyncio
@@ -382,188 +389,24 @@ async def control_endpoint(domain: str, device_id: str, payload: Dict[str, Any])
     current_state[device_id] = val
     print(f"[CTRL] {domain}/{device_id} -> {val}")
     
-    # --- HARDWARE CONTROL LOGIC ADAPTER ---
-    config_path = os.path.join(BASE_DIR, "config.json")
-    conf = load_config(config_path)
-    rs485_cfg = conf.get("rs485", {})
+    # Load runtime config for handlers
+    config = _cfg_mgr.full()
     
     if device_id in ["Computer", "Lifting"]:
-        if device_id == "Computer":
-            cmd = build_computer_frame(bool(val))
-        else:
-            cmd = build_lifting_frame(val)
-
-        rs485_on = bool(rs485_cfg.get("enabled", False))
-        legacy_on = bool(rs485_cfg.get("legacy_1053_enabled", False))
-
-        if rs485_on:
-            result = await rs485_manager.send_frame(
-                cmd,
-                expect_response=bool(rs485_cfg.get("expect_response", False)),
-                response_timeout=float(rs485_cfg.get("timeout", 0.25)),
-                retries=int(rs485_cfg.get("retries", 2)),
-                tag=device_id,
-            )
-            if not result.get("ok") and not legacy_on:
-                return JSONResponse(
-                    status_code=500,
-                    content={"status": "error", "message": result.get("error", "rs485 send failed"), "state": current_state},
-                )
-
-        if legacy_on or not rs485_on:
-            # Fallback: broadcast via legacy TCP 1053
-            target_ips = [f"192.168.0.{i}" for i in range(100, 131)]
-            for _ in range(2):
-                for ip in target_ips:
-                    await queue_manager.add_task(ip, 1053, cmd)
-            print(f"[FALLBACK_1053] {device_id} sent to 31 IPs x2")
-    
-
-    # --- GROUP A/B/C/D SWITCHES & HIGH VOLTAGE (Port 8234) ---
+        error = await handle_computer_lifting(device_id, val, current_state, rs485_manager, queue_manager, config)
     elif device_id in ["XS_A", "XS_B", "XS_C", "XS_D", "HighKZ", "HighXZ", "HighCurrent", "BBLampKZ", "CRLampKZ", "PowerCZ"]:
-        # Mapped to Device D (Port 8234)
-        conf = load_config(config_path)
-        devs_8234 = [d for d in conf.get("devices", []) if d.get("port") == 8234]
-
-        # FORCE FIX: 192.168.0.7 must be included for 8234 control as per user requirement
-        found_fixed = False
-        for d in devs_8234:
-             if d.get("ip") == "192.168.0.7":
-                 found_fixed = True
-                 break
-        if not found_fixed:
-             # Add fixed target
-             devs_8234.append({"ip": "192.168.0.7", "port": 8234, "type": "fixed_8234"})
-
-        reg_addr = 0x0000
-        # Doc 1.2 Mappings - UPDATED based on Node-RED Archived Flow Analysis
-        # Source: archived_v1/flows_modified_delay.json
-        if device_id == "HighCurrent": reg_addr = 0x0000 
-        elif device_id == "XS_D": reg_addr = 0x0001
-        elif device_id == "XS_C": reg_addr = 0x0002
-        elif device_id == "XS_B": reg_addr = 0x0003
-        elif device_id == "XS_A": reg_addr = 0x0004
-        elif device_id == "HighXZ": reg_addr = 0x0006  # HV Select
-        elif device_id == "HighKZ": reg_addr = 0x0007  # HV Main (Confirmed by user also related to PFKZ/Exhaust logic context)
-        elif device_id == "PowerCZ": reg_addr = 0x0005 # Power Socket (Mapped to Channel 6)
-        elif device_id == "BBLampKZ": reg_addr = 0x0008 
-        elif device_id == "CRLampKZ": reg_addr = 0x0009 
-        
-        print(f"[DEBUG_8234] ID={device_id} -> Addr={reg_addr} Val={val}")
-        cmd = DeviceProtocol.groups_modbus_tcp_cmd(reg_addr, 1 if val else 0)
-
-        
-        for dev in devs_8234:
-            await queue_manager.add_task(dev["ip"], 8234, cmd)
-
-    # --- TEACHER POWER (Port 8888) ---
+        error = await handle_group_8234(device_id, val, current_state, queue_manager, config)
     elif device_id in ["LowKZ", "LowDYSZ", "LowDLSZ", "LowDC_AC"]:
-        # Only send command if LowKZ is ON, OR if the trigger is LowKZ itself (turning ON/OFF)
-        
-        # Current switch state from updated state
-        power_on = bool(current_state.get("LowKZ", False))
-        
-        # Condition to send:
-        # 1. If LowKZ changed (device_id == "LowKZ") -> Always send (ON or OFF)
-        # 2. If Param changed -> Only send if Power is currently ON.
-        
-        should_send = False
-        if device_id == "LowKZ":
-            should_send = True
-        elif power_on:
-             should_send = True
-             
-        if should_send:
-            # Get State Params
-            is_ac = (current_state.get("LowDC_AC", 0) == 1) # 1=AC, 0=DC
-            
-            # 1. Voltage Parsing (x100)
-            # Log: {LowDYSZ: 10} -> 10V -> 1000
-            raw_volts = current_state.get("LowDYSZ", 0)
-            try:
-                # Handle empty string or None
-                if raw_volts == "": raw_volts = 0
-                volts_int = int(float(raw_volts) * 100)
-            except:
-                volts_int = 0
-                
-            # 2. Current Parsing (x1000, Default 2.5A)
-            # LowDLSZ (Current Setting). If empty/0 => 2.5A
-            raw_amps = current_state.get("LowDLSZ", 2.5)
-            try:
-                 if raw_amps == "": raw_amps = 2.5
-                 amps_float = float(raw_amps)
-                 if amps_float <= 0: amps_float = 2.5
-                 amps_int = int(amps_float * 1000)
-            except:
-                 amps_int = 2500 # Default 2.5A
-                
-            # Mapping LowKZ to Teacher Power Output
-            # User requirement: FIXED IP 192.168.0.211 (NO Scanning, NO Config file)
-            devs_8888 = [{"ip": "192.168.0.211", "port": 8888, "type": "final_fixed"}]
-            
-            print(f"[TEACHER_PWR] Send: ON={power_on} V={volts_int/100:.1f}V I={amps_int/1000:.1f}A AC={is_ac}")
-            cmd = DeviceProtocol.teacher_power_cmd(power_on, volts_int, amps_int, is_ac)
-            
-            for dev in devs_8888:
-                await queue_manager.add_task(dev["ip"], 8888, cmd)
-
-    # --- STUDENT SYNC LOW POWER (RS485 主通道 / 8887 回退) ---
+        error = await handle_teacher_power(device_id, val, current_state, queue_manager)
     elif device_id == "LowXSTB":
-        cmd = build_lowxstb_frame(current_state, bool(val))
-        rs485_on = bool(rs485_cfg.get("enabled", False))
-        legacy_on = bool(rs485_cfg.get("legacy_8887_enabled", False))
-
-        if rs485_on:
-            result = await rs485_manager.send_frame(
-                cmd,
-                expect_response=bool(rs485_cfg.get("expect_response", False)),
-                response_timeout=float(rs485_cfg.get("timeout", 0.25)),
-                retries=int(rs485_cfg.get("retries", 2)),
-                tag="LowXSTB",
-            )
-            if not result.get("ok") and not legacy_on:
-                return JSONResponse(
-                    status_code=500,
-                    content={"status": "error", "message": result.get("error", "rs485 send failed"), "state": current_state},
-                )
-
-        if legacy_on or not rs485_on:
-            # Fallback: legacy 8887 reverse-TCP (server_8887.py must still be running)
-            try:
-                from app.server_8887 import student_server
-                await student_server.broadcast_sync_cmd(cmd, "192.168.0.12")
-                print("[FALLBACK_8887] LowXSTB sent via legacy TCP server")
-            except Exception as _e:
-                print(f"[FALLBACK_8887] failed: {_e}")
-
+        error = await handle_student_sync(device_id, val, current_state, rs485_manager, config)
     elif device_id in ["VFD_Power", "VFD_Speed"]:
-        vfd_cfg = rs485_cfg.get("vfd", {}) if isinstance(rs485_cfg, dict) else {}
-        slave_id = int(vfd_cfg.get("slave_id", 1))
-        reg_power = int(vfd_cfg.get("reg_power", 0x2000))
-        reg_speed = int(vfd_cfg.get("reg_speed", 0x2001))
-        speed_map = vfd_cfg.get("speed_map", {"1": 10, "2": 20, "3": 30})
-        if not isinstance(speed_map, dict):
-            speed_map = {"1": 10, "2": 20, "3": 30}
-
-        if device_id == "VFD_Power":
-            cmd = build_vfd_power_frame(bool(val), slave_id, reg_power)
-        else:
-            cmd = build_vfd_speed_frame(val, slave_id, reg_speed, speed_map)
-
-        result = await rs485_manager.send_frame(
-            cmd,
-            expect_response=bool(rs485_cfg.get("expect_response", False)),
-            response_timeout=float(rs485_cfg.get("timeout", 0.25)),
-            retries=int(rs485_cfg.get("retries", 2)),
-            tag=device_id,
-        )
-        if not result.get("ok"):
-            return JSONResponse(
-                status_code=500,
-                content={"status": "error", "message": result.get("error", "rs485 send failed"), "state": current_state},
-            )
+        error = await handle_vfd(device_id, val, current_state, rs485_manager, config)
+    else:
+        error = None
     
+    if error:
+        return error
     
     return {"status": "ok", "state": current_state}
 
