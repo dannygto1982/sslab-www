@@ -37,3 +37,14 @@ packages_linux/
 
 # JVM crash logs
 hs_err_pid*.log
+
+# Archives (should not be in repo)
+*.7z
+*.zip
+*.rar
+
+# PlatformIO build artifacts
+.pio/
+
+# Backup files
+*_backup.*
