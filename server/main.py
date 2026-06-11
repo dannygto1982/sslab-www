@@ -8,10 +8,13 @@ import json
 import time
 import os
 import shutil
+import logging
+from logging.handlers import RotatingFileHandler
 
 import config
 import models
 from auth import verify_password, create_token, decode_token
+from rate_limit import public_limiter, auth_limiter, admin_limiter
 
 app = FastAPI(title="SSLAB Admin Platform", version="1.0.0")
 
@@ -40,8 +43,24 @@ async def require_auth(request: Request):
 
 @app.on_event("startup")
 async def startup():
+    # Log rotation: 10 MB per file, 5 backups
+    log_dir = os.path.join(config.BASE_DIR, "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    handler = RotatingFileHandler(
+        os.path.join(log_dir, "sslab-admin.log"),
+        maxBytes=10 * 1024 * 1024,
+        backupCount=5,
+        encoding="utf-8",
+    )
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    ))
+    logging.getLogger().addHandler(handler)
+    logging.getLogger().setLevel(logging.INFO)
+
     await models.init_db()
-    print(f"[SSLAB Admin] Server started on {config.HOST}:{config.PORT}")
+    logging.info(f"Server started on {config.HOST}:{config.PORT}")
 
 
 # ============ Auth Endpoints ============
@@ -91,7 +110,7 @@ async def list_firmware(app_name: Optional[str] = None, _auth=Depends(require_au
 
 
 @app.get("/api/firmware/latest")
-async def latest_firmware(app_name: str = "com.lab.management", current_version_code: int = 0):
+async def latest_firmware(app_name: str = "com.lab.management", current_version_code: int = 0, _rate=Depends(public_limiter)):
     """Public endpoint - APP calls this to check for updates"""
     fw = await models.get_latest_firmware(app_name, current_version_code)
     if not fw:
@@ -190,7 +209,7 @@ async def get_update_history(device_id: Optional[str] = None, _auth=Depends(requ
 # ============ Terminal Endpoints (APP calls these) ============
 
 @app.post("/api/terminal/heartbeat")
-async def terminal_heartbeat(request: Request):
+async def terminal_heartbeat(request: Request, _rate=Depends(public_limiter)):
     """APP定时上报心跳 - Public endpoint"""
     body = await request.json()
     device_id = body.get("device_id", "")
@@ -210,7 +229,7 @@ async def terminal_heartbeat(request: Request):
 
 
 @app.post("/api/terminal/log")
-async def terminal_log(request: Request):
+async def terminal_log(request: Request, _rate=Depends(public_limiter)):
     """APP批量上报日志 - Public endpoint"""
     body = await request.json()
     device_id = body.get("device_id", "")
@@ -222,14 +241,14 @@ async def terminal_log(request: Request):
 
 
 @app.get("/api/command/pending/{device_id}")
-async def get_pending_commands(device_id: str):
+async def get_pending_commands(device_id: str, _rate=Depends(public_limiter)):
     """APP轮询待执行命令 - Public endpoint"""
     cmds = await models.get_pending_commands(device_id)
     return {"commands": cmds}
 
 
 @app.post("/api/command/result")
-async def report_command_result(request: Request):
+async def report_command_result(request: Request, _rate=Depends(public_limiter)):
     """APP回报命令执行结果 - Public endpoint"""
     body = await request.json()
     cmd_id = body.get("command_id")
@@ -324,6 +343,34 @@ async def get_stats(_auth=Depends(require_auth)):
         "online_terminals": online_count,
         "latest_firmware": firmware[0] if firmware else None,
         "total_firmware": len(await models.list_firmware(limit=999)),
+    }
+
+
+# ============ Health Check ============
+
+_start_time = time.time()
+
+
+@app.get("/api/health")
+async def health_check():
+    """Enhanced health check — no auth required, limited rate."""
+    try:
+        terminals = await models.list_terminals()
+        db_ok = True
+    except Exception:
+        terminals = []
+        db_ok = False
+
+    now = time.time()
+    online = sum(1 for t in terminals if (now - t.get("last_heartbeat", 0)) < config.HEARTBEAT_TIMEOUT)
+
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "uptime_seconds": round(now - _start_time, 1),
+        "db_connected": db_ok,
+        "terminals_total": len(terminals),
+        "terminals_online": online,
+        "server_time": now,
     }
 
 
