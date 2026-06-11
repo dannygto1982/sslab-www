@@ -78,7 +78,11 @@ async def handle_computer_lifting(
 
     if legacy_on or not rs485_on:
         # Fallback: broadcast via legacy TCP 1053
-        target_ips = [f"192.168.0.{i}" for i in range(100, 131)]
+        fixed = rs485_cfg.get("fixed_ips", {})
+        subnet = fixed.get("legacy_1053_subnet", "192.168.0")
+        r_start = fixed.get("legacy_1053_range_start", 100)
+        r_end = fixed.get("legacy_1053_range_end", 130)
+        target_ips = [f"{subnet}.{i}" for i in range(r_start, r_end + 1)]
         for _ in range(2):
             for ip in target_ips:
                 await queue_manager.add_task(ip, 1053, cmd)
@@ -118,10 +122,13 @@ async def handle_group_switches(
 ) -> Optional[JSONResponse]:
     devs_8234 = [d for d in conf.get("devices", []) if d.get("port") == 8234]
 
-    # Force-include fixed IP 192.168.0.7 for 8234 control
-    found_fixed = any(d.get("ip") == "192.168.0.7" for d in devs_8234)
+    # Force-include fixed IP for 8234 control (configurable via rs485.fixed_ips)
+    fixed = rs485_cfg.get("fixed_ips", {})
+    fixed_ip = fixed.get("io808_control", "192.168.0.7")
+    fixed_port = fixed.get("io808_port", 8234)
+    found_fixed = any(d.get("ip") == fixed_ip for d in devs_8234)
     if not found_fixed:
-        devs_8234.append({"ip": "192.168.0.7", "port": 8234, "type": "fixed_8234"})
+        devs_8234.append({"ip": fixed_ip, "port": fixed_port, "type": "fixed_8234"})
 
     reg_addr = _GROUP_REG_ADDRS.get(device_id, 0x0000)
     print(f"[DEBUG_8234] ID={device_id} -> Addr={reg_addr} Val={val}")
@@ -181,7 +188,10 @@ async def handle_teacher_power(
         amps_int = 2500
 
     # Fixed IP 192.168.0.211 for Teacher Power
-    devs_8888 = [{"ip": "192.168.0.211", "port": 8888, "type": "final_fixed"}]
+    ips = rs485_cfg.get("fixed_ips", {})
+    tp_ip = ips.get("teacher_power", "192.168.0.211")
+    tp_port = ips.get("teacher_power_port", 8888)
+    devs_8888 = [{"ip": tp_ip, "port": tp_port, "type": "final_fixed"}]
 
     print(
         f"[TEACHER_PWR] Send: ON={power_on} "
@@ -233,7 +243,8 @@ async def handle_low_xstb(
         try:
             from app.server_8887 import student_server
 
-            await student_server.broadcast_sync_cmd(cmd, "192.168.0.12")
+            sync_ip = rs485_cfg.get("fixed_ips", {}).get("sync_server", "192.168.0.12")
+            await student_server.broadcast_sync_cmd(cmd, sync_ip)
             print("[FALLBACK_8887] LowXSTB sent via legacy TCP server")
         except Exception as _e:
             print(f"[FALLBACK_8887] failed: {_e}")

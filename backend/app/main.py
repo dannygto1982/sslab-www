@@ -15,9 +15,9 @@ from app.protocol_485 import (
 )
 from app.handlers import (
     handle_computer_lifting,
-    handle_group_8234,
+    handle_group_switches,
     handle_teacher_power,
-    handle_student_sync,
+    handle_low_xstb,
     handle_vfd,
 )
 from typing import List, Optional, Dict, Any
@@ -391,17 +391,18 @@ async def control_endpoint(domain: str, device_id: str, payload: Dict[str, Any])
     
     # Load runtime config for handlers
     config = _cfg_mgr.full()
+    rs485_cfg = config.get("rs485", {})
     
     if device_id in ["Computer", "Lifting"]:
-        error = await handle_computer_lifting(device_id, val, current_state, rs485_manager, queue_manager, config)
+        error = await handle_computer_lifting(device_id, val, current_state, rs485_cfg, queue_manager, rs485_manager)
     elif device_id in ["XS_A", "XS_B", "XS_C", "XS_D", "HighKZ", "HighXZ", "HighCurrent", "BBLampKZ", "CRLampKZ", "PowerCZ"]:
-        error = await handle_group_8234(device_id, val, current_state, queue_manager, config)
+        error = await handle_group_switches(device_id, val, current_state, rs485_cfg, queue_manager, rs485_manager, config)
     elif device_id in ["LowKZ", "LowDYSZ", "LowDLSZ", "LowDC_AC"]:
-        error = await handle_teacher_power(device_id, val, current_state, queue_manager)
+        error = await handle_teacher_power(device_id, val, current_state, rs485_cfg, queue_manager, rs485_manager)
     elif device_id == "LowXSTB":
-        error = await handle_student_sync(device_id, val, current_state, rs485_manager, config)
+        error = await handle_low_xstb(device_id, val, current_state, rs485_cfg, queue_manager, rs485_manager)
     elif device_id in ["VFD_Power", "VFD_Speed"]:
-        error = await handle_vfd(device_id, val, current_state, rs485_manager, config)
+        error = await handle_vfd(device_id, val, current_state, rs485_cfg, queue_manager, rs485_manager)
     else:
         error = None
     

@@ -30,6 +30,18 @@
         "4": 40,
         "5": 50
       }
+    },
+    "fixed_ips": {
+      "_comment": "固定 IP 地址集中管理，避免代码中硬编码",
+      "teacher_power": "192.168.0.211",
+      "teacher_power_port": 8888,
+      "io808_control": "192.168.0.7",
+      "io808_port": 8234,
+      "sync_server": "192.168.0.12",
+      "sync_server_port": 8887,
+      "legacy_1053_subnet": "192.168.0",
+      "legacy_1053_range_start": 100,
+      "legacy_1053_range_end": 130
     }
   },
   "devices": [
