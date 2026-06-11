@@ -82,16 +82,6 @@ class DeviceProtocol:
         return pdu + crc16_modbus(pdu)
 
     @staticmethod
-    def legacy_json_cmd(key: str, val: bool) -> bytes:
-        """
-        生成 Legacy JSON 控制指令 (Port 1053)
-        格式: {"key": true}\n
-        """
-        import json
-        payload = {key: val}
-        return json.dumps(payload).encode('utf-8') + b'\n'
-
-    @staticmethod
     def groups_modbus_tcp_cmd(addr: int, val: int) -> bytes:
         """
         Device D (Port 8234) Modbus TCP Cmd
