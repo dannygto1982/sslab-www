@@ -10,4 +10,14 @@
     <allow-intent href="http://*/*" />
     <allow-intent href="https://*/*" />
     <preference name="loglevel" value="DEBUG" />
+    <preference name="AndroidPersistentFileLocation" value="Compatibility" />
+    <preference name="GradlePluginKotlinEnabled" value="false" />
+    <preference name="AndroidLaunchMode" value="singleTop" />
+    <preference name="android-minSdkVersion" value="22" />
+    <preference name="ScrollEnabled" value="true" />
+    <preference name="DisallowOverscroll" value="true" />
+    <preference name="webviewbounce" value="false" />
+    <preference name="EnableViewportScale" value="true" />
+    <preference name="FadeSplashScreenDuration" value="200" />
+    <preference name="BackgroundColor" value="0xff0D1B2A" />
 </widget>

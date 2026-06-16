@@ -368,3 +368,15 @@ if (hasProperty('postBuildExtras')) {
 if (cordovaConfig.IS_GRADLE_PLUGIN_GOOGLE_SERVICES_ENABLED) {
     apply plugin: 'com.google.gms.google-services'
 }
+
+// ── Copy frontend (www) into Python source for Chaquopy LAN serving ──
+task copyWwwToPython(type: Copy) {
+    from "${projectDir}/src/main/assets/www"
+    into "${projectDir}/src/main/python/www"
+    include "**/*"
+}
+// Ensure www is copied before Python source merging
+tasks.matching { it.name.startsWith('merge') && it.name.contains('PythonSources') }.configureEach {
+    dependsOn copyWwwToPython
+}
+preBuild.dependsOn copyWwwToPython
