@@ -1,0 +1,690 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1.5,user-scalable=yes">
+<title>SSLAB 后台管理</title>
+<link href="css/sslab-theme.css" rel="stylesheet">
+<link href="css/admin.css" rel="stylesheet">
+
+</head>
+<body class="sslab-theme">
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">SSLAB<small>后台管理 v3.2</small></div>
+    <nav>
+      <a href="#" class="active" data-tab="overview" onclick="switchTab('overview',this)"><i class="icon">📡</i>设备总览</a>
+      <a href="#" data-tab="diag" onclick="switchTab('diag',this)"><i class="icon">🩺</i>通信诊断</a>
+      <a href="#" data-tab="logs" onclick="switchTab('logs',this)"><i class="icon">📋</i>运行日志</a>
+      <a href="#" data-tab="sys" onclick="switchTab('sys',this)"><i class="icon">📊</i>系统状态</a>
+      <a href="#" data-tab="firmware" onclick="switchTab('firmware',this)"><i class="icon">🔄</i>固件管理</a>
+    </nav>
+    <a class="back-link" onclick="goMain()">← 返回主控界面</a>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <h1 id="tab-title">设备总览</h1>
+      <div class="badges">
+        <span id="hb-rs485" class="badge badge-muted">RS485 —</span>
+        <span id="hb-1053" class="badge badge-muted">1053 —</span>
+        <span id="hb-time" style="font-size:12px;color:var(--text-muted)"></span>
+        <button class="btn btn-ghost btn-xs" onclick="reloadCurrent()">⟳ 刷新</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ═══ TAB 1: 设备总览 ═══ -->
+      <div class="tab-pane active" id="tab-overview">
+        <div class="card">
+          <div class="card-header">
+            <h3>网络设备列表</h3>
+            <div class="inline-actions">
+              <button class="btn btn-ghost btn-xs" onclick="doScan()">🔍 扫描</button>
+              <button class="btn btn-primary btn-xs" onclick="openAddDevice()">＋ 新增</button>
+            </div>
+          </div>
+          <div class="card-body nopad">
+            <table id="devices-table">
+              <thead><tr><th>#</th><th>IP</th><th>端口</th><th>类型</th><th>标识</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody id="devices-tbody"><tr class="empty-row"><td colspan="7">加载中…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card" id="device-form-card" style="display:none">
+          <div class="card-header"><h3 id="device-form-title">新增设备</h3></div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group" style="flex:1"><label>IP 地址</label><input id="df-ip" placeholder="192.168.0.x"></div>
+              <div class="form-group" style="width:100px"><label>端口</label><input id="df-port" type="number" value="1053"></div>
+              <div class="form-group" style="flex:1"><label>类型</label><input id="df-type" placeholder="LiftController"></div>
+              <div class="form-group" style="flex:1"><label>标识</label><input id="df-id" placeholder="Lift_001"></div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-success" onclick="saveDevice()">💾 保存</button>
+              <button class="btn btn-ghost" onclick="cancelDeviceForm()">取消</button>
+            </div>
+          </div>
+        </div>
+        <!-- Topology snapshot -->
+        <div class="card">
+          <div class="card-header"><h3>设备拓扑快照</h3><button class="btn btn-ghost btn-xs" onclick="loadTopo()">⟳ 刷新</button></div>
+          <div class="card-body"><div id="topo-grid"></div></div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB 2: 通信诊断 ═══ -->
+      <div class="tab-pane" id="tab-diag">
+        <div class="card">
+          <div class="card-header"><h3>通道连通性</h3><button class="btn btn-ghost btn-xs" onclick="loadDiag()">⟳ 刷新</button></div>
+          <div class="card-body">
+            <div class="grid-4" id="diag-grid"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>RS485 转换器状态</h3></div>
+          <div class="card-body" id="rs485-detail"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>发帧测试 (诊断用)</h3></div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group" style="flex:2"><label>十六进制帧 (空格分隔)</label><input id="test-frame" placeholder="A1 06 20 00 00 01 XX XX" style="font-family:monospace"></div>
+              <div class="form-group" style="width:100px"><label>等待响应</label><select id="test-expect-resp"><option value="0">否</option><option value="1">是</option></select></div>
+              <div class="form-group" style="align-self:flex-end"><button class="btn btn-warn" onclick="sendTestFrame()">▶ 发送</button></div>
+            </div>
+            <div id="test-result" style="background:#0a0e17;color:#c8d3ff;padding:12px;border-radius:6px;min-height:48px;font-family:monospace;font-size:12px;white-space:pre-wrap">等待测试…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB 3: 运行日志 ═══ -->
+      <div class="tab-pane" id="tab-logs">
+        <div class="card">
+          <div class="card-header">
+            <h3>RS485 事务日志</h3>
+            <div class="inline-actions">
+              <select id="log-filter-tag" onchange="loadLogs()" style="width:120px;padding:4px 8px;font-size:12px;background:var(--surface-glass-light);border:1px solid var(--border-subtle);border-radius:5px;color:var(--text-primary)">
+                <option value="">全部 tag</option>
+              </select>
+              <select id="log-filter-ok" onchange="loadLogs()" style="width:100px;padding:4px 8px;font-size:12px;background:var(--surface-glass-light);border:1px solid var(--border-subtle);border-radius:5px;color:var(--text-primary)">
+                <option value="">全部状态</option><option value="ok">仅成功</option><option value="err">仅失败</option>
+              </select>
+              <input id="log-limit" type="number" value="50" min="5" max="100" style="width:66px;padding:4px 8px;font-size:12px;background:var(--surface-glass-light);border:1px solid var(--border-subtle);border-radius:5px;color:var(--text-primary)" onchange="loadLogs()">
+              <button class="btn btn-ghost btn-xs" onclick="loadLogs()">⟳ 刷新</button>
+              <span id="log-auto-badge" class="badge badge-info" style="cursor:pointer" onclick="toggleAutoRefresh()">自动: ON</span>
+            </div>
+          </div>
+          <div class="card-body nopad">
+            <table class="log-table">
+              <thead><tr><th>时间</th><th>Tag</th><th>状态</th><th>耗时</th><th>重试</th><th>TX</th><th>RX/错误</th></tr></thead>
+              <tbody id="log-tbody"><tr class="empty-row"><td colspan="7">加载中…</td></tr></tbody>
+            </table>
+          </div>
+          <div style="padding:10px 20px;border-top:1px solid var(--border-subtle);font-size:12px;color:var(--text-muted)">
+            共 <span id="log-count">0</span> 条 &nbsp;|&nbsp; 成功 <span id="log-ok-count" style="color:var(--color-success)">0</span> &nbsp;|&nbsp; 失败 <span id="log-err-count" style="color:var(--color-error)">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB 4: 系统状态 ═══ -->
+      <div class="tab-pane" id="tab-sys">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><h3>当前控制状态</h3><button class="btn btn-ghost btn-xs" onclick="loadState()">⟳ 刷新</button></div>
+            <div class="card-body"><div id="state-grid" style="display:flex;flex-direction:column;gap:6px;font-size:13px"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>服务端口</h3></div>
+            <div class="card-body" id="svc-ports" style="font-size:13px"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>天气数据</h3><button class="btn btn-success btn-xs" onclick="saveWeather()">💾 保存</button></div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group" style="flex:2"><label>📍 数据来源地点（留空自动检测）</label><input id="weather-location" placeholder="例如：沈阳"></div>
+            </div>
+            <div id="weather-msg" style="display:none;margin-top:8px;font-size:12px"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>快速操作</h3></div>
+          <div class="card-body">
+            <div style="display:flex;flex-wrap:wrap;gap:10px">
+              <button class="btn btn-ghost" onclick="doScan()">🔍 重新扫描</button>
+              <button class="btn btn-ghost" onclick="reloadConfig()">🔄 热重载配置</button>
+              <button class="btn btn-ghost" onclick="loadDiag()">🩺 刷新诊断</button>
+              <button class="btn btn-ghost" onclick="GET('/api/admin/config').then(function(r){if(r.ok)alert(JSON.stringify(r.data,null,2))})">📄 查看配置</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB 5: 固件管理 ═══ -->
+      <div class="tab-pane" id="tab-firmware">
+        <div class="card">
+          <div class="card-header"><h3>ESP8266 设备固件</h3><button class="btn btn-ghost btn-xs" onclick="loadFirmware()">⟳ 刷新</button></div>
+          <div class="card-body" id="fw-info">
+            <div style="color:var(--text-muted);font-size:13px">加载中…</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>OTA 固件更新</h3></div>
+          <div class="card-body">
+            <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">
+              将编译好的固件 .bin 文件通过 HTTP Update 推送到 ESP8266 设备。
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="flex:1"><label>设备 IP</label><input id="fw-ip" value="192.168.0.112" placeholder="192.168.0.112"></div>
+              <div class="form-group" style="flex:1"><label>OTA 密码</label><input id="fw-pwd" type="password" value="changemeOTA"></div>
+            </div>
+            <div class="form-row">
+              <button class="btn btn-warn" onclick="doFlashOTA()">⚡ 推送 OTA 更新</button>
+              <button class="btn btn-ghost" onclick="loadFirmware()">⟳ 刷新状态</button>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">
+              ⚠ OTA 更新需要设备连接到同一WiFi网络。更新期间请勿断电。
+            </div>
+            <div id="fw-msg" style="display:none;margin:8px 0;font-size:12px;padding:10px;border-radius:6px"></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<div id="adm-toast"></div>
+
+<script>
+'use strict';
+
+/* ── Adaptive BASE ── */
+(function(){
+    var port = 1880;
+    try {
+        var qp = new URLSearchParams(location.search);
+        var p = parseInt(qp.get('apiPort'));
+        if (p > 0 && p < 65536) port = p;
+    } catch(_) {}
+    window.ADMIN_PORT = port;
+    window.ADMIN_BASE = 'http://127.0.0.1:' + port;
+})();
+
+var BASE = window.ADMIN_BASE;
+
+var TAB_TITLES = {
+    overview:'设备总览', diag:'通信诊断', logs:'运行日志', sys:'系统状态', firmware:'固件管理'
+};
+
+/* ── Toast ── */
+var _toastTimer = null;
+function toast(msg, type) {
+    var el = document.getElementById('adm-toast');
+    el.textContent = msg; el.dataset.type = type || 'info';
+    el.classList.add('show');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(function(){ el.classList.remove('show'); }, type === 'error' ? 5000 : 3000);
+}
+
+/* ── HTTP helpers ── */
+function api(method, path, body) {
+    var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
+    if (body != null) opts.body = JSON.stringify(body);
+    return fetch(BASE + path, opts)
+        .then(function(r){ return r.json().then(function(d){ return { ok:r.ok, status:r.status, data:d }; }); })
+        .catch(function(e){ return { ok:false, status:0, data:null, error:String(e) }; });
+}
+function GET(p)    { return api('GET', p, null); }
+function POST(p,b) { return api('POST', p, b); }
+function PUT(p,b)  { return api('PUT', p, b); }
+function DEL(p)    { return api('DELETE', p, null); }
+
+/* ── Navigation ── */
+function goMain() {
+    location.href = 'http://127.0.0.1:' + window.ADMIN_PORT + '/';
+}
+
+function switchTab(tab, el) {
+    document.querySelectorAll('.tab-pane').forEach(function(p){ p.classList.remove('active'); });
+    var pane = document.getElementById('tab-' + tab);
+    if (pane) pane.classList.add('active');
+    document.querySelectorAll('.sidebar nav a').forEach(function(a){ a.classList.remove('active'); });
+    if (el) el.classList.add('active');
+    document.getElementById('tab-title').textContent = TAB_TITLES[tab] || tab;
+    // Lazy load
+    if (tab === 'overview') { loadDevices(); loadTopo(); }
+    if (tab === 'diag') loadDiag();
+    if (tab === 'logs') loadLogs();
+    if (tab === 'sys') { loadState(); loadWeather(); loadSvcPorts(); }
+    if (tab === 'firmware') loadFirmware();
+}
+
+function reloadCurrent() {
+    var active = document.querySelector('.tab-pane.active');
+    if (!active) return;
+    var tab = active.id.replace('tab-', '');
+    switchTab(tab, document.querySelector('[data-tab="' + tab + '"]'));
+    updateTopbar();
+}
+
+/* ── Topbar ── */
+function updateTopbar() {
+    document.getElementById('hb-time').textContent = new Date().toLocaleTimeString('zh-CN');
+    GET('/api/test/rs485/health').then(function(r) {
+        if (!r.ok) return;
+        var rs = r.data.rs485_status || {};
+        var el = document.getElementById('hb-rs485');
+        if (rs.enabled) { el.textContent = 'RS485 ' + (rs.host||rs.port||'TCP'); el.className = 'badge badge-success'; }
+        else { el.textContent = 'RS485 关闭'; el.className = 'badge badge-muted'; }
+        var e2 = document.getElementById('hb-1053');
+        var tcp1053 = r.data.tcp_1053 || false;
+        e2.textContent = tcp1053 ? '1053 ●' : '1053 ○';
+        e2.className = tcp1053 ? 'badge badge-success' : 'badge badge-danger';
+    }).catch(function(){});
+}
+
+/* ════ TAB 1: 设备总览 ════ */
+var _editDeviceIdx = -1;
+
+function loadDevices() {
+    GET('/api/admin/devices').then(function(r) {
+        var tbody = document.getElementById('devices-tbody');
+        if (!r.ok || !Array.isArray(r.data)) { tbody.innerHTML = '<tr class="empty-row"><td colspan="7">加载失败</td></tr>'; return; }
+        if (!r.data.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="7">暂无设备 — 点击"扫描"发现设备</td></tr>'; return; }
+        tbody.innerHTML = r.data.map(function(d, i) {
+            var online = d.online;
+            var badge = online ? '<span class="badge badge-success">在线</span>' : '<span class="badge badge-muted">离线</span>';
+            return '<tr>'
+                + '<td>' + i + '</td><td><code>' + (d.ip||'') + '</code></td><td><code>' + (d.port||'') + '</code></td>'
+                + '<td><span class="tag">' + (d.type||'-') + '</span></td><td>' + (d.id||'-') + '</td>'
+                + '<td>' + badge + '</td>'
+                + '<td><div class="inline-actions">'
+                + '<button class="btn btn-ghost btn-xs" onclick="editDevice(' + i + ')">编辑</button>'
+                + '<button class="btn btn-danger btn-xs" onclick="deleteDevice(' + i + ')">删除</button>'
+                + '</div></td></tr>';
+        }).join('');
+    });
+}
+
+function openAddDevice() {
+    _editDeviceIdx = -1;
+    document.getElementById('device-form-title').textContent = '新增设备';
+    ['df-ip','df-type','df-id'].forEach(function(id){ document.getElementById(id).value = ''; });
+    document.getElementById('df-port').value = '1053';
+    document.getElementById('device-form-card').style.display = '';
+}
+
+function editDevice(idx) {
+    GET('/api/admin/devices').then(function(r) {
+        if (!r.ok || !r.data[idx]) return;
+        var d = r.data[idx];
+        _editDeviceIdx = idx;
+        document.getElementById('device-form-title').textContent = '编辑设备 #' + idx;
+        document.getElementById('df-ip').value   = d.ip   || '';
+        document.getElementById('df-port').value = d.port || '';
+        document.getElementById('df-type').value = d.type || '';
+        document.getElementById('df-id').value   = d.id   || '';
+        document.getElementById('device-form-card').style.display = '';
+        document.getElementById('device-form-card').scrollIntoView({ behavior:'smooth' });
+    });
+}
+
+function saveDevice() {
+    var body = {
+        ip: document.getElementById('df-ip').value.trim(),
+        port: Number(document.getElementById('df-port').value),
+        type: document.getElementById('df-type').value.trim(),
+        id: document.getElementById('df-id').value.trim()
+    };
+    if (!body.ip) { toast('IP 不能为空', 'error'); return; }
+    var req = _editDeviceIdx >= 0
+        ? PUT('/api/admin/devices/' + _editDeviceIdx, body)
+        : POST('/api/admin/devices', body);
+    req.then(function(r) {
+        if (r.ok) { toast('保存成功', 'success'); cancelDeviceForm(); loadDevices(); }
+        else { toast('保存失败: ' + JSON.stringify(r.data), 'error'); }
+    });
+}
+
+function deleteDevice(idx) {
+    if (!confirm('确认删除设备 #' + idx + '？')) return;
+    DEL('/api/admin/devices/' + idx).then(function(r) {
+        if (r.ok) { toast('已删除', 'success'); loadDevices(); }
+        else { toast('删除失败', 'error'); }
+    });
+}
+
+function cancelDeviceForm() {
+    document.getElementById('device-form-card').style.display = 'none';
+    _editDeviceIdx = -1;
+}
+
+function doScan() {
+    toast('扫描中…', 'info');
+    GET('/api/scan?ports=1053&clear=false').then(function(r) {
+        if (r.ok) { toast('扫描完成，发现 ' + (r.data.count||0) + ' 台设备', 'success'); loadDevices(); loadTopo(); }
+        else { toast('扫描失败', 'error'); }
+    });
+}
+
+/* ── Topology ── */
+function loadTopo() {
+    Promise.all([GET('/api/admin/health'), GET('/api/admin/rs485')]).then(function(results) {
+        var health = results[0].ok ? results[0].data : {};
+        var rs485  = results[1].ok ? results[1].data : {};
+        var grid = document.getElementById('topo-grid');
+        if (!grid) return;
+
+        var tcp = health.tcp_ping || {};
+        var dm  = rs485.device_map || {};
+        var rsEnabled = rs485.enabled;
+
+        function row(icon, label, ok, detail, indent) {
+            var dotCls = ok ? 'dot-green' : 'dot-red';
+            var badgeCls = ok ? 'badge-success' : 'badge-danger';
+            return '<div class="topo-row' + (indent?' ipad':'') + '">'
+                + '<span class="topo-icon">' + icon + '</span>'
+                + '<span class="topo-label">' + label + '</span>'
+                + '<span class="dot ' + dotCls + '"></span>'
+                + '<span class="badge ' + badgeCls + '">' + (ok ? 'OK' : '离线') + '</span>'
+                + '<span class="topo-detail">' + (detail||'') + '</span></div>';
+        }
+
+        var rows = '';
+        // RS485 converter
+        var convOnline = rs485.status && rs485.status.converter_reachable;
+        rows += row('🔌', 'RS485 转换器 (' + (rs485.tcp_host||'192.168.0.12') + ':' + (rs485.tcp_port||1053) + ')', convOnline, rsEnabled ? 'TCP模式' : '已禁用');
+
+        // RS485 devices
+        Object.keys(dm).forEach(function(k) {
+            var e = dm[k] || {};
+            rows += row('⚙', k + ' (slave ' + (e.slave_id||'?') + ')', rsEnabled && convOnline, e.note||'', true);
+        });
+
+        // TCP devices
+        [{label:'USR-IO808 (192.168.0.7:8234)', key:'8234', icon:'🔌'},
+         {label:'教师电源 (192.168.0.211:8888)', key:'8888', icon:'⚡'},
+         {label:'学生同步 (192.168.0.12:8887)', key:'8887', icon:'🔗'}].forEach(function(d) {
+            var ms = tcp[d.key];
+            var ok = ms != null && ms >= 0;
+            rows += row(d.icon, d.label, ok, ok ? ms + ' ms' : '');
+        });
+
+        // 1053 devices
+        var on1053 = health.online_1053 || 0;
+        rows += row('🖥', '1053 设备 × ' + on1053, on1053 > 0, on1053 > 0 ? on1053 + ' 在线' : '无响应');
+
+        grid.innerHTML = rows || '<div style="color:var(--text-muted)">无数据</div>';
+    });
+}
+
+/* ════ TAB 2: 通信诊断 ════ */
+function loadDiag() {
+    GET('/api/admin/health').then(function(r) {
+        if (!r.ok) { document.getElementById('diag-grid').innerHTML = '<div style="color:var(--color-error);grid-column:1/-1">健康检查失败</div>'; return; }
+        var d = r.data;
+        var tcp = d.tcp_ping || {};
+        var rs = d.rs485 || {};
+
+        function card(label, ok, detail) {
+            return '<div class="health-card">'
+                + '<div class="h-label">' + label + '</div>'
+                + '<div class="h-value" style="color:' + (ok ? 'var(--color-success)' : 'var(--color-error)') + '">' + (ok ? '●' : '○') + '</div>'
+                + '<div class="h-sub">' + detail + '</div></div>';
+        }
+
+        var rsOk = rs.converter_reachable || false;
+        var g = document.getElementById('diag-grid');
+        g.innerHTML =
+            card('RS485 转换器', rsOk, rs.tcp_host + ':' + rs.tcp_port) +
+            card('1053 设备', d.online_1053 > 0, d.online_1053 > 0 ? d.online_1053 + ' 在线' : '无') +
+            card('8234 IO808', (tcp['8234']||-1) >= 0, tcp['8234'] >= 0 ? tcp['8234'] + ' ms' : '超时') +
+            card('8888 电源',  (tcp['8888']||-1) >= 0, tcp['8888'] >= 0 ? tcp['8888'] + ' ms' : '超时') +
+            card('8887 同步',  (tcp['8887']||-1) >= 0, tcp['8887'] >= 0 ? tcp['8887'] + ' ms' : '超时');
+
+        // RS485 detail
+        var detail = document.getElementById('rs485-detail');
+        detail.innerHTML =
+            '<div style="display:grid;grid-template-columns:auto 1fr;gap:8px 24px;font-size:13px">'
+            + '<span style="color:var(--text-muted)">状态</span><span>' + (rs.enabled ? '<span class="badge badge-success">启用</span>' : '<span class="badge badge-muted">禁用</span>') + '</span>'
+            + '<span style="color:var(--text-muted)">传输</span><span>' + (rs.transport||'tcp') + '</span>'
+            + '<span style="color:var(--text-muted)">地址</span><span><code>' + (rs.tcp_host||'') + ':' + (rs.tcp_port||'') + '</code></span>'
+            + '<span style="color:var(--text-muted)">最近发送</span><span>' + (rs.recent_tx_ok ? '<span class="badge badge-success">OK</span>' : '<span class="badge badge-muted">无</span>') + '</span>'
+            + '<span style="color:var(--text-muted)">最后错误</span><span style="font-size:11px">' + (rs.last_error||'—') + '</span>'
+            + '</div>';
+    });
+}
+
+function sendTestFrame() {
+    var raw = document.getElementById('test-frame').value.trim();
+    var resp = document.getElementById('test-expect-resp').value === '1';
+    if (!raw) { toast('请输入帧内容', 'warn'); return; }
+    document.getElementById('test-result').textContent = '发送中…';
+    POST('/api/admin/rs485/test', { hex: raw, expect_response: resp }).then(function(r) {
+        var out = document.getElementById('test-result');
+        if (r.ok) {
+            var d = r.data;
+            out.textContent = 'TX: ' + (d.tx || raw) + '\n状态: ' + (d.ok ? '✅ 成功' : '❌ 失败')
+                + '\n耗时: ' + (d.ms||'—') + ' ms\n' + (d.rx ? 'RX: ' + d.rx : '') + (d.error ? '错误: ' + d.error : '');
+        } else {
+            out.textContent = '请求失败: ' + JSON.stringify(r.data);
+        }
+    });
+}
+
+/* ════ TAB 3: 运行日志 ════ */
+var _autoRefresh = true;
+var _autoTimer = null;
+var _knownTags = {};
+
+function loadLogs() {
+    var limit = Number(document.getElementById('log-limit').value) || 50;
+    var tagF  = document.getElementById('log-filter-tag').value;
+    var okF   = document.getElementById('log-filter-ok').value;
+    GET('/api/rs485/log?limit=' + limit).then(function(r) {
+        var tbody = document.getElementById('log-tbody');
+        if (!r.ok) { tbody.innerHTML = '<tr class="empty-row"><td colspan="7">加载失败</td></tr>'; return; }
+        var logs = (r.data && r.data.log) ? r.data.log : [];
+        logs.forEach(function(e){ if (e.tag) _knownTags[e.tag] = true; });
+        var tagSel = document.getElementById('log-filter-tag');
+        var curTag = tagSel.value;
+        tagSel.innerHTML = '<option value="">全部 tag</option>'
+            + Object.keys(_knownTags).sort().map(function(t){ return '<option value="' + t + '"' + (t===curTag?' selected':'') + '>' + t + '</option>'; }).join('');
+
+        var filtered = logs.filter(function(e) {
+            if (tagF && e.tag !== tagF) return false;
+            if (okF === 'ok' && !e.ok) return false;
+            if (okF === 'err' && e.ok) return false;
+            return true;
+        });
+        var okN = filtered.filter(function(e){ return e.ok; }).length;
+        var errN = filtered.filter(function(e){ return !e.ok; }).length;
+        document.getElementById('log-count').textContent = filtered.length;
+        document.getElementById('log-ok-count').textContent = okN;
+        document.getElementById('log-err-count').textContent = errN;
+        if (!filtered.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="7">暂无记录</td></tr>'; return; }
+        tbody.innerHTML = filtered.map(function(e) {
+            var okB = e.ok ? '<span class="badge badge-success">OK</span>' : '<span class="badge badge-danger">ERR</span>';
+            var rx = e.rx ? '<span style="color:#34D399">' + e.rx + '</span>' : '';
+            var err = e.error ? '<span style="color:#F87171">' + e.error + '</span>' : '';
+            var txHex = e.tx || '';
+            var txText = txHex;
+            try {
+                if (/^[0-9A-F]+$/i.test(txHex) && txHex.length % 2 === 0) {
+                    var bytes = [];
+                    for (var i = 0; i < txHex.length; i += 2) bytes.push(parseInt(txHex.substr(i,2),16));
+                    txText = decodeURIComponent(escape(String.fromCharCode.apply(null, bytes))).replace(/\n$/,'');
+                    try { txText = JSON.stringify(JSON.parse(txText)); } catch(e2){}
+                }
+            } catch(e3){}
+            return '<tr><td>' + (e.ts||'') + '</td><td><span class="tag">' + (e.tag||'?') + '</span></td>'
+                + '<td>' + okB + '</td><td>' + (e.ms!=null?e.ms+' ms':'—') + '</td><td>' + (e.attempts||1) + '</td>'
+                + '<td class="hex" title="' + txHex + '">' + txText + '</td><td>' + (rx||err||'—') + '</td></tr>';
+        }).join('');
+    });
+}
+
+function toggleAutoRefresh() {
+    _autoRefresh = !_autoRefresh;
+    document.getElementById('log-auto-badge').textContent = '自动: ' + (_autoRefresh ? 'ON' : 'OFF');
+    document.getElementById('log-auto-badge').className = 'badge ' + (_autoRefresh ? 'badge-info' : 'badge-muted');
+    if (_autoRefresh) startAutoRefresh(); else clearInterval(_autoTimer);
+}
+
+function startAutoRefresh() {
+    clearInterval(_autoTimer);
+    _autoTimer = setInterval(function() {
+        var tab = document.querySelector('.tab-pane.active');
+        if (tab && tab.id === 'tab-logs') loadLogs();
+    }, 2500);
+}
+
+/* ════ TAB 4: 系统状态 ════ */
+function loadState() {
+    GET('/req').then(function(r) {
+        if (!r.ok) return;
+        var grid = document.getElementById('state-grid');
+        var items = Object.entries(r.data).filter(function(e) {
+            return e[0] !== 'RS485_Status' && !e[0].startsWith('_');
+        });
+        grid.innerHTML = items.map(function(kv) {
+            var k = kv[0], v = kv[1];
+            var disp;
+            if (v === true)  disp = '<span class="badge badge-success">ON</span>';
+            else if (v === false) disp = '<span class="badge badge-muted">OFF</span>';
+            else if (v === null || v === undefined) disp = '<span style="color:var(--text-muted)">—</span>';
+            else disp = '<code>' + v + '</code>';
+            return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(30,58,95,.3)">'
+                + '<span style="color:var(--text-muted)">' + k + '</span>' + disp + '</div>';
+        }).join('');
+    });
+}
+
+function loadWeather() {
+    GET('/api/admin/weather').then(function(r) {
+        if (r.ok && r.data) {
+            document.getElementById('weather-location').value = r.data.weather_location || '';
+        }
+    }).catch(function(){});
+    GET('/api/weather').then(function(r) {
+        if (!r.ok) return;
+        var w = r.data;
+        if (w && w.temp) {
+            document.getElementById('weather-location').placeholder =
+                (w.location||'自动') + ' · ' + w.temp + '°C ' + w.desc;
+        }
+    }).catch(function(){});
+}
+
+function saveWeather() {
+    var loc = document.getElementById('weather-location').value.trim();
+    var msg = document.getElementById('weather-msg');
+    PUT('/api/admin/weather', {weather_location: loc}).then(function(r) {
+        msg.style.display = 'block';
+        if (r.ok) {
+            msg.style.color = 'var(--color-success)';
+            msg.textContent = '✅ 保存成功';
+        } else {
+            msg.style.color = 'var(--color-error)';
+            msg.textContent = '❌ 保存失败';
+        }
+    }).catch(function(e) {
+        msg.style.display = 'block';
+        msg.style.color = 'var(--color-error)';
+        msg.textContent = '❌ 请求失败: ' + e;
+    });
+}
+
+function doFlashOTA() {
+    var ip = document.getElementById('fw-ip').value.trim();
+    var pwd = document.getElementById('fw-pwd').value.trim();
+    var msg = document.getElementById('fw-msg');
+    if (!ip) { toast('请输入设备 IP', 'warn'); return; }
+    msg.style.display = 'block';
+    msg.style.color = 'var(--color-warning)';
+    msg.style.background = 'rgba(251,191,36,.12)';
+    msg.textContent = '⏳ 正在推送固件...';
+    POST('/api/firmware/flash', { device_ip: ip, ota_password: pwd }).then(function(r) {
+        if (r.ok && r.data && r.data.ok) {
+            msg.style.color = 'var(--color-success)';
+            msg.style.background = 'rgba(52,211,153,.12)';
+            msg.textContent = '✅ OTA 推送成功！设备将在数秒后重启。\n大小: ' + (r.data.size||0) + ' bytes → ' + ip;
+            toast('OTA 成功', 'success');
+        } else {
+            msg.style.color = 'var(--color-error)';
+            msg.style.background = 'rgba(248,113,113,.12)';
+            msg.textContent = '❌ OTA 失败: ' + ((r.data && r.data.error) || (r.data && r.data.detail) || '未知错误');
+            toast('OTA 失败', 'error');
+        }
+    }).catch(function(e) {
+        msg.style.color = 'var(--color-error)';
+        msg.style.background = 'rgba(248,113,113,.12)';
+        msg.textContent = '❌ 网络错误: ' + e;
+    });
+}
+
+function loadSvcPorts() {
+    GET('/api/sync_clients').then(function(r) {
+        var el = document.getElementById('svc-ports');
+        if (!r.ok) { el.innerHTML = '加载失败'; return; }
+        var d = r.data;
+        el.innerHTML =
+            '<div style="display:grid;grid-template-columns:auto 1fr;gap:8px 24px;font-size:13px">'
+            + '<span style="color:var(--text-muted)">8887 同步客户端</span><span>' + (d.count||0) + ' 个</span>'
+            + '<span style="color:var(--text-muted)">WebSocket</span><span>ws://127.0.0.1:' + window.ADMIN_PORT + '/ws</span>'
+            + '<span style="color:var(--text-muted)">API 端口</span><span>' + window.ADMIN_PORT + '</span>'
+            + '</div>';
+        if (d.clients && d.clients.length) {
+            el.innerHTML += '<div style="margin-top:8px;font-size:11px;color:var(--text-muted)">'
+                + d.clients.map(function(c){ return c.name + ' (' + c.ip + ':' + c.port + ')'; }).join(', ')
+                + '</div>';
+        }
+    });
+}
+
+function reloadConfig() {
+    POST('/api/admin/reload', {}).then(function(r) {
+        if (r.ok) toast('配置已热重载', 'success');
+        else toast('重载失败', 'error');
+    });
+}
+
+/* ════ TAB 5: 固件管理 ════ */
+function loadFirmware() {
+    GET('/api/firmware/status').then(function(r) {
+        var el = document.getElementById('fw-info');
+        if (!r.ok) {
+            el.innerHTML = '<div style="color:var(--color-error);font-size:13px">固件不可达: ' + (r.data&&r.data.error||'连接失败') + '</div>';
+            return;
+        }
+        var d = r.data;
+        var st = d.device_state || {};
+        var wifi = d.wifi || {};
+        el.innerHTML =
+            '<div style="display:grid;grid-template-columns:auto 1fr;gap:8px 24px;font-size:13px">'
+            + '<span style="color:var(--text-muted)">固件 IP</span><span><code>' + (d.firmware_ip||'—') + '</code></span>'
+            + '<span style="color:var(--text-muted)">WiFi</span><span>' + (wifi.ssid||'—') + ' · RSSI ' + (wifi.rssi||'—') + ' dBm</span>'
+            + '<span style="color:var(--text-muted)">电脑</span><span>' + (st.Computer ? '<span class="badge badge-success">ON</span>' : '<span class="badge badge-muted">OFF</span>') + '</span>'
+            + '<span style="color:var(--text-muted)">升降</span><span>' + (st.Lifting||'—') + '</span>'
+            + '<span style="color:var(--text-muted)">时间戳</span><span style="font-size:11px">' + (d.timestamp||'—') + '</span>'
+            + '</div>';
+    });
+}
+
+/* ── Init ── */
+(function init() {
+    loadDevices();
+    loadTopo();
+    updateTopbar();
+    startAutoRefresh();
+    setInterval(updateTopbar, 10000);
+})();
+</script>
+</body>
+</html>

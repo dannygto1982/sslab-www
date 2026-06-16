@@ -1,27 +1,44 @@
 /* ============================================================
-   SSLAB Control Panel — Blue-Gradient Dark Theme
-   Design Language: SSLMS-HMI (Jetpack Compose)
+   SSLAB Control Panel — Light Blue-Gray Theme
+   Design Language: Clean & Modern
    ============================================================ */
+
+/* === Android WebView Touch Performance === */
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+button, .btn, a, [role="button"],
+.nav-link, .switch-label, .device-card,
+.lift-btn, .control-btn, select, input {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+input, textarea, select {
+  -webkit-user-select: text;
+  user-select: text;
+}
 
 /* ---- CSS Variables / Design Tokens ---- */
 :root {
-  /* Blue Gradient Palette */
-  --sslab-blue-900: #0D1B2A;    /* deepest navy background */
-  --sslab-blue-800: #1B263B;    /* surface / card background */
-  --sslab-blue-700: #1E3A8A;    /* primary deep blue */
-  --sslab-blue-600: #3D5A80;    /* primary muted */
-  --sslab-blue-500: #3B82F6;    /* accent / secondary blue */
-  --sslab-blue-400: #60A5FA;    /* light blue highlight */
-  --sslab-blue-300: #98C1D9;    /* soft blue */
-  --sslab-blue-200: #93C5FD;    /* very light blue */
-  --sslab-blue-100: #BBDEFB;    /* subtle blue tint */
-  --sslab-blue-50:  #E3F2FD;    /* barely blue */
+  /* Light Blue-Gray Palette */
+  --sslab-blue-900: #F0F4F8;    /* lightest page background */
+  --sslab-blue-800: #FFFFFF;    /* card / surface background */
+  --sslab-blue-700: #2563EB;    /* primary deep blue */
+  --sslab-blue-600: #3B82F6;    /* primary */
+  --sslab-blue-500: #3B82F6;    /* accent */
+  --sslab-blue-400: #2563EB;    /* blue highlight */
+  --sslab-blue-300: #1D4ED8;    /* deep blue */
+  --sslab-blue-200: #60A5FA;    /* lighter blue */
+  --sslab-blue-100: #93C5FD;    /* subtle blue */
+  --sslab-blue-50:  #DBEAFE;    /* barely blue tint */
   
   /* Gradient */
-  --gradient-primary: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 60%, #60A5FA 100%);
-  --gradient-surface: radial-gradient(circle at top left, #1B263B 0%, #0D1B2A 100%);
-  --gradient-button: linear-gradient(90deg, #3D5A80 0%, #5E8AA8 100%);
-  --gradient-card-hover: linear-gradient(135deg, #1B263B 0%, #3D5A80 100%);
+  --gradient-primary: linear-gradient(135deg, #2563EB 0%, #3B82F6 50%, #60A5FA 100%);
+  --gradient-surface: linear-gradient(180deg, #F0F4F8 0%, #E2E8F0 100%);
+  --gradient-button: linear-gradient(90deg, #3B82F6 0%, #60A5FA 100%);
+  --gradient-card-hover: linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%);
   
   /* Status Colors */
   --color-success: #10B981;
@@ -34,22 +51,22 @@
   --color-info-dark: #0891B2;
   
   /* Text */
-  --text-primary: #E0E1DD;
-  --text-secondary: #CED4DA;
-  --text-muted: #6C757D;
+  --text-primary: #1E293B;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
   --text-on-primary: #FFFFFF;
   
   /* Surfaces */
-  --surface-dark: #1B263B;
-  --surface-elevated: #343A40;
-  --surface-glass: rgba(27, 38, 59, 0.85);
-  --surface-glass-light: rgba(255, 255, 255, 0.06);
+  --surface-dark: #FFFFFF;
+  --surface-elevated: #F8FAFC;
+  --surface-glass: rgba(255, 255, 255, 0.92);
+  --surface-glass-light: rgba(0, 0, 0, 0.04);
   
   /* Misc */
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-medium: rgba(255, 255, 255, 0.12);
-  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.3);
-  --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --border-subtle: rgba(0, 0, 0, 0.06);
+  --border-medium: rgba(0, 0, 0, 0.10);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04);
+  --shadow-elevated: 0 4px 24px rgba(0, 0, 0, 0.10);
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -83,16 +100,10 @@ body::before {
   position: fixed;
   inset: 0;
   background: 
-    radial-gradient(ellipse 80% 50% at 20% 10%, rgba(30, 58, 138, 0.25) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 80% 90%, rgba(59, 130, 246, 0.15) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 50% at 20% 10%, rgba(59, 130, 246, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 90%, rgba(37, 99, 235, 0.04) 0%, transparent 60%),
     var(--gradient-surface);
   z-index: -1;
-  animation: bgPulse 12s ease-in-out infinite alternate;
-}
-
-@keyframes bgPulse {
-  0% { opacity: 0.9; }
-  100% { opacity: 1; }
 }
 
 /* ---- Typography ---- */
@@ -167,7 +178,7 @@ h3 { font-size: 1.15rem; }
 }
 
 .status-badge.online {
-  background: rgba(16, 185, 129, 0.15);
+  background: rgba(16, 185, 129, 0.12);
   color: var(--color-success);
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
@@ -184,7 +195,7 @@ h3 { font-size: 1.15rem; }
 }
 
 .status-badge.offline {
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.12);
   color: var(--color-error);
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
@@ -199,7 +210,7 @@ h3 { font-size: 1.15rem; }
 }
 
 .status-badge.info {
-  background: rgba(6, 182, 212, 0.15);
+  background: rgba(6, 182, 212, 0.12);
   color: var(--color-info);
   border: 1px solid rgba(6, 182, 212, 0.3);
 }
@@ -278,7 +289,7 @@ h3 { font-size: 1.15rem; }
 .toggle-switch .slider {
   width: 50px;
   height: 28px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.10);
   border-radius: 14px;
   position: relative;
   transition: background var(--transition-fast);
@@ -293,7 +304,7 @@ h3 { font-size: 1.15rem; }
   height: 22px;
   border-radius: 50%;
   background: #FFF;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
   transition: transform var(--transition-normal);
 }
 
@@ -338,7 +349,7 @@ h3 { font-size: 1.15rem; }
 }
 
 .btn-sslab:hover::after {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .btn-sslab:active {
@@ -358,11 +369,11 @@ h3 { font-size: 1.15rem; }
 .btn-outline {
   background: transparent;
   color: var(--sslab-blue-400);
-  border: 1.5px solid rgba(96, 165, 250, 0.4);
+  border: 1.5px solid rgba(37, 99, 235, 0.3);
 }
 
 .btn-outline:hover {
-  background: rgba(96, 165, 250, 0.1);
+  background: rgba(37, 99, 235, 0.06);
   border-color: var(--sslab-blue-400);
 }
 
@@ -384,12 +395,50 @@ h3 { font-size: 1.15rem; }
   border-radius: var(--radius-lg);
 }
 
-/* ---- Control Panel Grid ---- */
-.control-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+/* Secondary button */
+.btn-secondary {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
 }
+.btn-secondary:hover {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.16);
+}
+
+/* VFD speed preset button — match lift button dimensions */
+.vfd-spd-btn {
+  min-width: 60px;
+  height: var(--h-btn-sm);
+  padding: 0 18px;
+  font-weight: 600;
+  font-size: var(--fs-base);
+  border-radius: 8px;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.vfd-spd-btn.active {
+  background: var(--gradient-primary);
+  color: #000;
+  font-weight: 700;
+  text-shadow: none;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+/* 按住/点击时：保持文字可读，缩放反馈 */
+.vfd-spd-btn:active {
+  color: #000;
+  font-weight: 700;
+  text-shadow: none;
+  opacity: 0.92;
+  transform: scale(0.96);
+}
+
+/* ---- Control Panel Grid (managed by style.css) ---- */
+/* .control-grid is now exclusively defined in style.css v7 proportional system.
+   sslab-theme.css no longer owns grid layout — theme only provides tokens. */
 
 /* ---- Device Status Indicators ---- */
 .device-status {
@@ -427,7 +476,7 @@ h3 { font-size: 1.15rem; }
 .progress-sslab {
   height: 6px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.06);
   overflow: hidden;
 }
 
@@ -438,13 +487,13 @@ h3 { font-size: 1.15rem; }
   transition: width var(--transition-slow);
 }
 
-/* ---- Slider Inputs (Voltage/Current) ---- */
+/* ---- Slider Inputs ---- */
 input[type="range"].sslab-slider {
   -webkit-appearance: none;
   width: 100%;
   height: 6px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.10);
   outline: none;
 }
 
@@ -477,7 +526,7 @@ input[type="range"].sslab-slider::-webkit-slider-thumb:hover {
 
 .input-sslab:focus {
   border-color: var(--sslab-blue-400);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
 .input-sslab::placeholder {
@@ -515,7 +564,7 @@ input[type="range"].sslab-slider::-webkit-slider-thumb:hover {
 .modal-sslab-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(4px);
   z-index: 200;
   display: flex;
@@ -550,7 +599,7 @@ input[type="range"].sslab-slider::-webkit-slider-thumb:hover {
   height: 32px;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.04);
   color: var(--text-secondary);
   cursor: pointer;
   font-size: 1.1rem;
@@ -561,7 +610,7 @@ input[type="range"].sslab-slider::-webkit-slider-thumb:hover {
 }
 
 .modal-sslab .modal-close:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.08);
 }
 
 /* ---- Tab Navigation ---- */
@@ -636,22 +685,10 @@ input[type="range"].sslab-slider::-webkit-slider-thumb:hover {
   animation: toastIn 0.3s ease;
 }
 
-.toast-sslab.success {
-  background: var(--color-success);
-}
-
-.toast-sslab.error {
-  background: var(--color-error);
-}
-
-.toast-sslab.warning {
-  background: var(--color-warning);
-  color: #000;
-}
-
-.toast-sslab.info {
-  background: var(--color-info);
-}
+.toast-sslab.success { background: var(--color-success); }
+.toast-sslab.error { background: var(--color-error); }
+.toast-sslab.warning { background: var(--color-warning); color: #000; }
+.toast-sslab.info { background: var(--color-info); }
 
 @keyframes toastIn {
   from { opacity: 0; transform: translateX(40px); }
@@ -660,21 +697,10 @@ input[type="range"].sslab-slider::-webkit-slider-thumb:hover {
 
 /* ---- Responsive ---- */
 @media (max-width: 768px) {
-  .control-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .main-container {
-    padding: 10px 12px 30px;
-  }
-  
-  .top-bar {
-    padding: 10px 14px;
-  }
-  
-  .card-sslab {
-    padding: 14px;
-  }
+  .control-grid { grid-template-columns: 1fr; }
+  .main-container { padding: 10px 12px 30px; }
+  .top-bar { padding: 10px 14px; }
+  .card-sslab { padding: 14px; }
 }
 
 /* ---- Utility ---- */
@@ -696,19 +722,10 @@ input[type="range"].sslab-slider::-webkit-slider-thumb:hover {
 .spacer { flex: 1; }
 
 /* ---- Scrollbar ---- */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.12);
   border-radius: 3px;
 }
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.22); }

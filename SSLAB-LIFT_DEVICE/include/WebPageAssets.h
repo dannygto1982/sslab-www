@@ -83,6 +83,31 @@ const char kJs[] = R"(
             mqttState.style.color=data.mqtt.connected?'var(--success)':'var(--danger)';
             mqttUptime.textContent=formatUptime(data.mqtt.uptime);
             mqttError.textContent=data.mqtt.lastError||'-';
+            
+            // 更新设备运行时状态（操作成功判断依据）
+            if(data.device){
+                var devEl=document.getElementById('devStateGrid');
+                if(devEl){
+                    var c=!!data.device.computer?'<span style="color:var(--success);">● 已开启</span>':'<span style="color:var(--muted);">○ 已关闭</span>';
+                    var liftLabel={'up':'▲ 上升','down':'▼ 下降','stop':'■ 停止'};
+                    var l=liftLabel[data.device.lifting]||'■ 停止';
+                    var lamp=!!data.device.lamp?'<span style="color:var(--success);">💡 亮</span>':'<span style="color:var(--muted);">🌑 灭</span>';
+                    var lastTs=data.device.lastUpdateMs? Math.floor(data.device.lastUpdateMs/1000)+'s前' : '--';
+                    devEl.innerHTML='<div class="status-pill"><strong>电脑</strong><span>'+c+'</span></div>'
+                        +'<div class="status-pill"><strong>升降</strong><span>'+l+'</span></div>'
+                        +'<div class="status-pill"><strong>灯光</strong><span>'+lamp+'</span></div>'
+                        +'<div class="status-pill"><strong>最后更新</strong><span>'+lastTs+'</span></div>';
+                }
+            }
+            
+            // 更新 RS485 最后帧信息
+            if(data.rs485){
+                var rs485El=document.getElementById('rs485Info');
+                if(rs485El && data.rs485.lastFrameLen>0){
+                    rs485El.innerHTML='<span style="font-size:12px;color:var(--muted);">最后RS485帧: '+data.rs485.lastFrameLen+'B ['+data.rs485.lastFrameHex+']</span>';
+                }
+            }
+            
             if(data.logs&&data.logs.length>0){
                 logContainer.innerHTML=data.logs.map(log=>{
                     const color=log.level==='ERROR'?'#ef4444':log.level==='WARN'?'#f59e0b':'#6b7280';
@@ -121,7 +146,7 @@ const char kJs[] = R"(
     });
     
     refreshStatus();
-    setInterval(refreshStatus,2000);
+    setInterval(refreshStatus,5000);
 })();
 </script>
 )";
@@ -132,7 +157,7 @@ inline String getHeader(const String& title) {
     h += F("<title>");
     h += title;
     h += F("</title>");
-    h += kCss;
+    h += F("<link rel=\"stylesheet\" href=\"/style.css\" media=\"print\" onload=\"this.media='all'\">");
     h += F("</head><body><div class=\"page\">");
     h += F("<header class=\"brand\"><div class=\"brand-logo\">SL</div><div class=\"brand-title\"><h1>");
     h += title;
@@ -143,9 +168,35 @@ inline String getHeader(const String& title) {
 inline String getFooter() {
     String f = F("<footer>© 2025 SSLAB Smart Space • Intelligent Control System</footer>");
     f += F("<div id=\"toast\" class=\"toast\" hidden></div>");
-    f += kJs;
+    f += F("<script src=\"/app.js\" defer></script>");
     f += F("</div></body></html>");
     return f;
+}
+
+// 提取纯 CSS 内容（去掉 <style> 包裹标签），供独立路由使用
+// 使用 static 缓存避免每次请求重复 2.8KB 的 substring 复制
+inline String getCssContent() {
+    static String cached;
+    if (cached.length() == 0) {
+        String s(kCss);
+        int start = s.indexOf("<style>") + 7;
+        int end = s.lastIndexOf("</style>");
+        cached = s.substring(start, end);
+    }
+    return cached;
+}
+
+// 提取纯 JS 内容（去掉 <script> 包裹标签），供独立路由使用
+// 使用 static 缓存避免每次请求重复 3.5KB 的 substring 复制
+inline String getJsContent() {
+    static String cached;
+    if (cached.length() == 0) {
+        String s(kJs);
+        int start = s.indexOf("<script>") + 8;
+        int end = s.lastIndexOf("</script>");
+        cached = s.substring(start, end);
+    }
+    return cached;
 }
 
 } // namespace WebPageAssets

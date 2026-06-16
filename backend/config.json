@@ -12,6 +12,7 @@
     "retries": 2,
     "expect_response": false,
     "inter_frame_delay_ms": 20,
+    "auto_detect_exclude": ["COM5", "COM16"],
     "device_map": {
       "Computer":  {"slave_id": 1, "note": "MJ-E1S1 继电器 device1"},
       "Lifting":   {"slave_id": 1, "note": "MJ-E1S1 继电器 motor_fwd/bwd"},
@@ -70,5 +71,6 @@
       "id": "Device_8889"
     }
   ],
-  "last_scan": "manual_fix"
+  "last_scan": "manual_fix",
+  "weather_location": ""
 }

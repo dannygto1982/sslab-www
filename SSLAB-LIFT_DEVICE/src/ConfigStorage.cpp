@@ -46,6 +46,9 @@ bool loadSettings(DeviceSettings &settings) {
     if (doc["studentGroup"].is<String>()) {
         settings.studentGroup = doc["studentGroup"].as<String>();
     }
+    if (doc["mqttEnabled"].is<bool>()) {
+        settings.mqttEnabled = doc["mqttEnabled"].as<bool>();
+    }
     if (doc["mqttHost"].is<String>()) {
         settings.mqttHost = doc["mqttHost"].as<String>();
     }
@@ -90,6 +93,9 @@ bool loadSettings(DeviceSettings &settings) {
     }
     if (doc["discoveryIntervalMs"].is<unsigned long>()) {
         settings.discoveryIntervalMs = doc["discoveryIntervalMs"].as<unsigned long>();
+    }
+    if (doc["liftTimeoutSec"].is<uint16_t>()) {
+        settings.liftTimeoutSec = doc["liftTimeoutSec"].as<uint16_t>();
     }
 
     std::vector<WifiCredential> sanitized;
@@ -180,6 +186,7 @@ bool saveSettings(const DeviceSettings &settings) {
     doc["deviceType"] = settings.deviceType;
     doc["classroomZone"] = settings.classroomZone;
     doc["studentGroup"] = settings.studentGroup;
+    doc["mqttEnabled"] = settings.mqttEnabled;
     doc["mqttHost"] = settings.mqttHost;
     doc["mqttPort"] = settings.mqttPort;
     doc["mqttUsername"] = settings.mqttUsername;
@@ -195,6 +202,7 @@ bool saveSettings(const DeviceSettings &settings) {
     doc["telemetryIntervalMs"] = settings.telemetryIntervalMs;
     doc["heartbeatIntervalMs"] = settings.heartbeatIntervalMs;
     doc["discoveryIntervalMs"] = settings.discoveryIntervalMs;
+    doc["liftTimeoutSec"] = settings.liftTimeoutSec;
 
     JsonArray wifiArray = doc["wifi"].to<JsonArray>();
     for (const auto &cred : settings.wifiList) {

@@ -16,6 +16,7 @@ from app.protocol_485 import (
 from app.handlers import (
     handle_computer_lifting,
     handle_group_switches,
+    handle_lamp,
     handle_teacher_power,
     handle_low_xstb,
     handle_vfd,
@@ -90,6 +91,9 @@ current_state: Dict[str, Any] = {
 # Initialise ConfigManager singleton (sync, safe before event loop)
 _cfg_mgr = ConfigManager.init(BASE_DIR)
 
+# Cache last scan results for health checks
+_last_scan_devices: List[Dict[str, Any]] = []
+
 
 def load_runtime_config() -> Dict[str, Any]:
     return _cfg_mgr.full()
@@ -117,18 +121,91 @@ async def startup_event():
 
     rs485_manager.configure(_cfg_mgr.get_section("rs485", {}))
 
+    # ── RS485 全自动看门狗 ──────────────────────────────────────────────
+    # 启动时自动检测 USB-RS485 适配器所在 COM 口；
+    # 运行期间端口失效时自动重新扫描，无需人工干预。
+    async def rs485_watchdog():
+        import time as _wt
+        _FALLBACK_EXCLUDE = ["COM5", "COM16"]   # 已知用途的端口（排除）
+        _RETRY_INTERVAL   = 30.0                # 端口失效后重试间隔（秒）
+        _BOOT_DELAY       = 3.0                 # 等待事件循环完全启动
+
+        await asyncio.sleep(_BOOT_DELAY)
+
+        def _get_cfg():
+            return _cfg_mgr.get_section("rs485", {})
+
+        def _get_exclude():
+            raw = _get_cfg().get("auto_detect_exclude") or _FALLBACK_EXCLUDE
+            return [e.upper() for e in raw]
+
+        def _test_port_sync(port: str, baud: int) -> bool:
+            try:
+                import serial  # type: ignore
+                s = serial.Serial(port, baudrate=baud, timeout=0.1, write_timeout=0.1)
+                s.close()
+                return True
+            except Exception:
+                return False
+
+        async def _do_detect(reason: str) -> bool:
+            cfg = _get_cfg()
+            excl = _get_exclude()
+            baud = int(cfg.get("baudrate", 9600))
+            print(f"[RS485 Watchdog] {reason} (exclude={excl})")
+            result = await asyncio.to_thread(rs485_manager.auto_detect_port, baud, b"", excl)
+            if result.get("ok"):
+                port = result["port"]
+                desc = result.get("description", "")
+                print(f"[RS485 Watchdog] \u2705 Found RS485 port: {port} {desc}")
+                _cfg_mgr.update_section("rs485", {"port": port, "enabled": True})
+                rs485_manager.configure(_cfg_mgr.get_section("rs485", {}))
+                rs485_manager.clear_redetect()
+                return True
+            else:
+                print(f"[RS485 Watchdog] \u274c No port found: {result.get('error')}")
+                return False
+
+        # ── 初始检测 ──
+        cfg = _get_cfg()
+        cur_port = cfg.get("port", "")
+        baud = int(cfg.get("baudrate", 9600))
+        if cur_port and cfg.get("enabled"):
+            port_ok = await asyncio.to_thread(_test_port_sync, cur_port, baud)
+            if port_ok:
+                print(f"[RS485 Watchdog] Configured port {cur_port} OK — skipping scan")
+            else:
+                await _do_detect(f"Configured port {cur_port} not accessible")
+        else:
+            await _do_detect("No valid port configured — initial scan")
+
+        # ── 持续监控循环 ──
+        _last_detect_ts: float = _wt.monotonic()
+        while queue_manager.is_running:
+            await asyncio.sleep(5)
+            if not rs485_manager.needs_redetect:
+                continue
+            now = _wt.monotonic()
+            if now - _last_detect_ts < _RETRY_INTERVAL:
+                continue  # 节流：避免频繁扫描
+            _last_detect_ts = _wt.monotonic()
+            await _do_detect("Port failure detected — re-scanning")
+
+    asyncio.create_task(rs485_watchdog())
+
     # Start Periodic Auto-Scan Task (Every 60s)
     async def periodic_scan():
+        global _last_scan_devices
         # Initial wait to let server start
         await asyncio.sleep(2)
         print("[AutoScan] Initial scan started...")
-        await perform_network_scan()
+        _last_scan_devices = await perform_network_scan()
         
         while queue_manager.is_running:
             await asyncio.sleep(60)
             if not queue_manager.is_running: break
             print("[AutoScan] Periodic scan started...")
-            await perform_network_scan()
+            _last_scan_devices = await perform_network_scan()
             
     asyncio.create_task(periodic_scan())
 
@@ -207,6 +284,7 @@ async def scan_network_endpoint(clear: bool = False, ports: str = None):
             pass # Ignore invalid format
 
     results = await perform_network_scan(clear_cache=clear, target_ports=target_ports)
+    _last_scan_devices = results
     # Broadcast update via WS
     await manager.broadcast(json.dumps({
         "type": "scan_complete",
@@ -230,6 +308,55 @@ async def rs485_log_endpoint(limit: int = 50):
         "status": rs485_manager.status(),
         "log": rs485_manager.get_log(limit),
     }
+
+
+@app.get("/api/test/rs485/log")
+async def rs485_test_log_endpoint(limit: int = 50):
+    """RS485 通信日志 (测试别名，兼容 APK 端路径)"""
+    limit = max(1, min(limit, 100))
+    return {"log": rs485_manager.get_log(limit)}
+
+
+@app.get("/api/rs485/ports")
+async def rs485_list_ports():
+    """List all available serial COM ports on this machine."""
+    result = await asyncio.to_thread(rs485_manager.list_ports)
+    return result
+
+
+@app.post("/api/rs485/autodetect")
+async def rs485_autodetect(body: Dict[str, Any] = {}):
+    """Manually trigger RS485 port auto-detection (same logic as the watchdog).
+
+    The system already runs this automatically at startup and on port failure.
+    Call this endpoint only when you want to force an immediate re-scan.
+
+    Body (optional): {"exclude": ["COM5", "COM16"]}
+      Extra ports to exclude in addition to auto_detect_exclude in config.json.
+    """
+    cfg = _cfg_mgr.get_section("rs485", {})
+    # Merge config excludes + request excludes
+    config_excl = cfg.get("auto_detect_exclude") or ["COM5", "COM16"]
+    body_excl   = [str(x).upper() for x in (body.get("exclude") or [])]
+    exclude = list({e.upper() for e in config_excl} | set(body_excl))
+    baudrate = int(cfg.get("baudrate", 9600))
+
+    result = await asyncio.to_thread(rs485_manager.auto_detect_port, baudrate, b"", exclude)
+
+    if result.get("ok"):
+        port = result["port"]
+        _cfg_mgr.update_section("rs485", {"port": port, "enabled": True})
+        rs485_manager.configure(_cfg_mgr.get_section("rs485", {}))
+        rs485_manager.clear_redetect()
+        print(f"[ManualDetect] RS485 port set to {port}")
+        return {"ok": True, "port": port, "description": result.get("description", ""),
+                "tried": result.get("tried", [])}
+
+    return JSONResponse(status_code=200, content={
+        "ok": False,
+        "error": result.get("error", "no port found"),
+        "tried": result.get("tried", []),
+    })
 
 
 # ─────────────────────────────────────────────────────────────
@@ -363,6 +490,22 @@ async def admin_health():
     }
 
 
+@app.get("/api/admin/weather")
+async def admin_get_weather_config():
+    """获取天气位置配置"""
+    cfg = _cfg_mgr.full()
+    return {"weather_location": cfg.get("weather_location", "") or ""}
+
+@app.put("/api/admin/weather")
+async def admin_set_weather_config(body: Dict[str, Any]):
+    """设置天气位置配置"""
+    loc = str(body.get("weather_location", "") or "").strip()
+    try:
+        _cfg_mgr.set_section("weather_location", loc)
+        return {"ok": True, "weather_location": loc}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page():
     """Serve the Admin UI page."""
@@ -395,6 +538,8 @@ async def control_endpoint(domain: str, device_id: str, payload: Dict[str, Any])
     
     if device_id in ["Computer", "Lifting"]:
         error = await handle_computer_lifting(device_id, val, current_state, rs485_cfg, queue_manager, rs485_manager)
+    elif device_id == "Lamp":
+        error = await handle_lamp(device_id, val, current_state, rs485_cfg, queue_manager, rs485_manager)
     elif device_id in ["XS_A", "XS_B", "XS_C", "XS_D", "HighKZ", "HighXZ", "HighCurrent", "BBLampKZ", "CRLampKZ", "PowerCZ"]:
         error = await handle_group_switches(device_id, val, current_state, rs485_cfg, queue_manager, rs485_manager, config)
     elif device_id in ["LowKZ", "LowDYSZ", "LowDLSZ", "LowDC_AC"]:

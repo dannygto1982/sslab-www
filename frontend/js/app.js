@@ -155,18 +155,23 @@
         });
 
         // VFD_Speed
-        if (dt.VFD_Speed !== undefined) {
-            $('#VFD_Speed').val(String(dt.VFD_Speed));
+        if (dt.VFD_Speed !== undefined && window._VFD_highlightActive) {
+            window._VFD_highlightActive(String(dt.VFD_Speed));
         }
         // Lifting 三段状态显示
         if (dt.Lifting !== undefined) {
             var ls = dt.Lifting;
-            var liftLabel = (ls === 'up' || ls === true || ls === 1) ? '▲ 上升'
-                          : (ls === 'down' || ls === false || ls === 0) ? '▼ 下降'
-                          : '■ 停止';
-            var $liftBtn = $('#Lifting');
-            if ($liftBtn.length) {
-                $liftBtn.attr('title', liftLabel);
+            var liftLabel, liftColor;
+            if (ls === 'up' || ls === true || ls === 1) {
+                liftLabel = '▲ 上升'; liftColor = '#28a745';
+            } else if (ls === 'down' || ls === false || ls === 0) {
+                liftLabel = '▼ 下降'; liftColor = '#dc3545';
+            } else {
+                liftLabel = '■ 停止'; liftColor = '#ffc107';
+            }
+            var $tip = $('#liftStatusTip');
+            if ($tip.length) {
+                $tip.text(liftLabel).css('color', liftColor);
             }
         }
     }
@@ -213,94 +218,139 @@
     }
 
     /* =========================================================
-     * 7. Lifting 三段控制面板注入
-     *    在 #Lifting 旁边动态注入 上升/停止/下降 三按钮
+     * 7. Lifting 三段控制面板增强
+     *    HTML 已有三按钮，这里增强为使用新 API + 添加状态提示
      * ========================================================= */
     function initLiftingPanel() {
-        var $sw = $('#Lifting');
-        if (!$sw.length) return;
-        if ($sw.closest('.lifting-panel').length) return; // 已初始化
+        var $btns = $('.lift-up-btn, .lift-stop-btn, .lift-down-btn');
+        if (!$btns.length) return;
+        if ($('#liftStatusTip').length) return; // 已初始化
 
-        var $parent = $sw.closest('.clearfix.left-box-c');
-        if (!$parent.length) return;
+        // 移除旧的 onclick 属性，改用事件委托
+        $btns.removeAttr('onclick');
 
-        // 隐藏原有的 toggle 开关（用三按钮替代）
-        $sw.hide();
+        // 添加状态提示文字
+        var $boxTitle = $btns.closest('.left-box').find('.box-title');
+        if ($boxTitle.length) {
+            $boxTitle.append(' <span id="liftStatusTip" style="font-size:11px;color:#888;">● 等待控制</span>');
+        }
 
-        var html = '<div class="lifting-btns" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">'
-            + '<button class="btn btn-sm btn-default lift-btn" data-lift="up"   title="升起">▲ 升</button>'
-            + '<button class="btn btn-sm btn-warning  lift-btn" data-lift="stop" title="停止">■ 停</button>'
-            + '<button class="btn btn-sm btn-default lift-btn" data-lift="down" title="落下">▼ 降</button>'
-            + '<span id="liftStatusTip" style="font-size:11px;color:#888;align-self:center;"></span>'
-            + '</div>';
-        $parent.find('.pull-right').append(html);
+        // 绑定新的事件处理
+        $btns.on('click', function() {
+            var $btn = $(this);
+            var action;
+            if ($btn.hasClass('lift-up-btn')) action = 'up';
+            else if ($btn.hasClass('lift-stop-btn')) action = 'stop';
+            else if ($btn.hasClass('lift-down-btn')) action = 'down';
+            if (!action) return;
 
-        $parent.on('click', '.lift-btn', function() {
-            var action = $(this).data('lift');
             var domain = 'SYHJ';
             if (typeof getUrlParam1 === 'function') domain = getUrlParam1('Lifting') || 'SYHJ';
-            var $btn = $(this);
-            $btn.prop('disabled', true);
+            $btns.prop('disabled', true);
+
+            // 记录操作日志
+            var actionCN = {up:'上升', stop:'停止', down:'下降'};
+            try { window.logOperation && window.logOperation('升降控制', actionCN[action]||action, 'pending'); } catch(_) {}
+
             API.control(domain, 'Lifting', action).then(function(res) {
-                $btn.prop('disabled', false);
+                $btns.prop('disabled', false);
                 if (res.ok) {
+                    // 更新1053状态徽章
+                    try {
+                        var $badge = $('#status1053');
+                        if ($badge.length) {
+                            $badge.removeClass('disconnected').addClass('connected').text('● 已连接');
+                        }
+                    } catch(_) {}
                     var tips = { up: '▲ 正在上升', stop: '■ 已停止', down: '▼ 正在下降' };
-                    $('#liftStatusTip').text(tips[action] || '');
+                    var colors = { up: '#28a745', stop: '#ffc107', down: '#dc3545' };
+                    $('#liftStatusTip').text(tips[action] || '').css('color', colors[action] || '#888');
                     showToast('升降 ' + action + ' 已发送', 'success');
+                    try { window.logOperation && window.logOperation('升降控制', actionCN[action]||action, 'ok'); } catch(_) {}
                 } else {
-                    showToast('升降控制失败：' + res.error, 'error');
+                    var errMsg = res.error || '';
+                    var hint = '';
+                    if (/disabled/i.test(errMsg)) {
+                        hint = ' — 请在 <a href="/admin" target="_blank" style="color:#fff;text-decoration:underline">Admin后台</a> 启用 RS485';
+                    } else if (/port|serial|com/i.test(errMsg) || /not found|cannot open/i.test(errMsg)) {
+                        hint = ' — 请在 <a href="/admin" target="_blank" style="color:#fff;text-decoration:underline">Admin后台</a> 自动检测 COM 口';
+                    }
+                    var $t = $('#sslab-toast');
+                    $t.attr('data-type', 'error').html('升降控制失败：' + errMsg + hint).addClass('show');
+                    clearTimeout(window._liftToastTimer);
+                    window._liftToastTimer = setTimeout(function() { $t.removeClass('show'); }, 6000);
+                    $('#liftStatusTip').text('● 通信失败').css('color', '#dc3545');
+                    try { window.logOperation && window.logOperation('升降控制', actionCN[action]||action, 'err'); } catch(_) {}
                 }
             });
         });
     }
 
     /* =========================================================
-     * 8. VFD 速度快捷档位按钮（在 select 下方注入 1/2/3 快捷钮）
+     * 8. VFD 速度快捷档位按钮（直接使用 HTML 中的按钮，绑定事件）
      * ========================================================= */
     function initVFDPanel() {
-        var $sel = $('#VFD_Speed');
-        if (!$sel.length || $sel.next('.vfd-quick').length) return;
+        var $btns = $('.vfd-spd-btn');
+        if (!$btns.length) return;
 
-        var html = '<div class="vfd-quick" style="display:flex;gap:4px;margin-top:4px;">'
-            + '<button class="btn btn-xs btn-default" data-spd="1">低</button>'
-            + '<button class="btn btn-xs btn-default" data-spd="2">中</button>'
-            + '<button class="btn btn-xs btn-default" data-spd="3">高</button>'
-            + '</div>';
-        $sel.after(html);
+        // 高亮当前选中档位
+        function highlightActive(spd) {
+            $btns.removeClass('btn-primary').addClass('btn-default');
+            $btns.filter('[data-spd="' + spd + '"]').removeClass('btn-default').addClass('btn-primary');
+        }
 
-        $sel.closest('.clearfix').on('click', '.vfd-quick button', function() {
-            var spd = $(this).data('spd');
-            $sel.val(String(spd));
+        $btns.on('click', function() {
+            var $btn = $(this);
+            var spd = $btn.data('spd');
+            var spdLabel = $btn.text().trim() || ('档位'+spd);
             var domain = 'SYHJ';
             if (typeof getUrlParam1 === 'function') domain = getUrlParam1('VFD_Speed') || 'SYHJ';
+            $btn.prop('disabled', true);
+
+            // 记录操作日志
+            try { window.logOperation && window.logOperation('变频器档位', spdLabel, 'pending'); } catch(_) {}
+
             API.control(domain, 'VFD_Speed', Number(spd)).then(function(res) {
+                $btn.prop('disabled', false);
                 if (res.ok) {
+                    highlightActive(spd);
                     showToast('变频器档位 ' + spd, 'success');
+                    try { window.logOperation && window.logOperation('变频器档位', spdLabel, 'ok'); } catch(_) {}
                 } else {
                     showToast('变频器失败：' + res.error, 'error');
+                    try { window.logOperation && window.logOperation('变频器档位', spdLabel, 'err'); } catch(_) {}
                 }
             });
         });
+
+        // 暴露供状态同步使用
+        window._VFD_highlightActive = highlightActive;
     }
 
     /* =========================================================
-     * 9. RS485 日志浮窗
+     * 9. 统一操作日志浮窗（RS485 + 所有控制操作）
      * ========================================================= */
-    function initRS485LogPanel() {
+    function initUnifiedLogPanel() {
         if ($('#sslab-log-panel').length) return;
         var html = '<div id="sslab-log-panel" style="display:none;position:fixed;bottom:70px;right:16px;'
-            + 'width:480px;max-height:360px;overflow-y:auto;background:#1e1e1e;color:#d4d4d4;'
-            + 'border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.5);z-index:9998;font-size:12px;'
-            + 'font-family:\'Consolas\',monospace;padding:10px;">'
-            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
-            + '<span style="font-weight:bold;color:#9cdcfe;">RS485 事务日志</span>'
-            + '<span style="cursor:pointer;opacity:.6;" id="sslab-log-close">✕</span>'
+            + 'width:520px;max-height:420px;overflow-y:auto;background:#1e1e1e;color:#d4d4d4;'
+            + 'border-radius:10px;box-shadow:0 4px 24px rgba(0,0,0,.6);z-index:9998;font-size:12px;'
+            + 'font-family:\'Consolas\',\'Microsoft YaHei\',monospace;padding:12px;">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;border-bottom:1px solid #333;padding-bottom:8px;">'
+            + '<span style="font-weight:bold;color:#9cdcfe;font-size:13px;">📋 操作日志</span>'
+            + '<span style="display:flex;gap:10px;align-items:center;">'
+            + '<select id="sslab-log-filter" style="background:#2d2d2d;color:#ccc;border:1px solid #444;border-radius:4px;padding:2px 6px;font-size:11px;">'
+            + '<option value="all">全部</option><option value="ok">✓ 成功</option><option value="err">✗ 失败</option><option value="pending">⏳ 进行中</option>'
+            + '</select>'
+            + '<span style="cursor:pointer;opacity:.6;font-size:14px;" id="sslab-log-close">✕</span>'
+            + '</span>'
             + '</div>'
-            + '<div id="sslab-log-body">加载中…</div>'
+            + '<div id="sslab-log-body" style="max-height:340px;overflow-y:auto;">暂无记录</div>'
             + '</div>'
-            + '<button id="sslab-log-btn" title="RS485 日志" style="position:fixed;bottom:16px;right:70px;'
-            + 'width:46px;height:46px;border-radius:50%;background:#2d2d2d;border:none;color:#9cdcfe;'
-            + 'font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4);z-index:9997;">LOG</button>';
+            + '<button id="sslab-log-btn" title="操作日志" style="position:fixed!important;left:18px!important;bottom:17px!important;'
+            + 'width:44px!important;height:44px!important;border-radius:50%;background:#1e293b!important;border:none;color:#9cdcfe;'
+            + 'font-size:11px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35);z-index:9998!important;'
+            + 'font-weight:700;display:inline-flex;align-items:center;justify-content:center;">LOG</button>';
         $('body').append(html);
 
         $('#sslab-log-btn').on('click', function() {
@@ -309,33 +359,74 @@
                 $p.hide();
             } else {
                 $p.show();
-                refreshRS485Log();
+                refreshUnifiedLog();
             }
         });
         $('#sslab-log-close').on('click', function() {
             $('#sslab-log-panel').hide();
         });
+        $('#sslab-log-filter').on('change', function() {
+            refreshUnifiedLog();
+        });
     }
 
-    function refreshRS485Log() {
-        API.getRS485Log(30).then(function(res) {
-            var $body = $('#sslab-log-body');
-            if (!res.ok) { $body.text('获取失败: ' + res.error); return; }
-            var logs = (res.data && res.data.log) ? res.data.log : [];
-            if (!logs.length) { $body.text('暂无记录'); return; }
-            var rows = logs.map(function(e) {
-                var color = e.ok ? '#4ec94e' : '#f44747';
-                var tag = e.tag || '?';
-                return '<div style="border-bottom:1px solid #333;padding:3px 0;">'
-                    + '<span style="color:#888;">' + (e.ts || '') + '</span> '
-                    + '<span style="color:#ce9178;">' + tag + '</span> '
-                    + '<span style="color:' + color + ';">' + (e.ok ? 'OK' : 'ERR') + '</span> '
-                    + '<span style="color:#888;">' + (e.ms || 0) + 'ms</span>'
-                    + (e.error ? '<br><span style="color:#f44747;font-size:10px;">  ' + e.error + '</span>' : '')
-                    + '<br><span style="color:#555;font-size:10px;">TX: ' + (e.tx || '') + '</span>'
-                    + '</div>';
-            });
-            $body.html(rows.join(''));
+    function renderOpLogEntry(e) {
+        var colors = {ok:'#4ec94e', err:'#f44747', pending:'#dcdcaa'};
+        var icons = {ok:'✓', err:'✗', pending:'⏳'};
+        var color = colors[e.status] || '#888';
+        var icon = icons[e.status] || '?';
+        return '<div style="border-bottom:1px solid #333;padding:3px 0;">'
+            + '<span style="color:#888;">' + (e.ts || '') + '</span> '
+            + '<span style="color:' + color + ';">' + icon + '</span> '
+            + '<span style="color:#ce9178;">' + (e.action || '') + '</span> '
+            + '<span style="color:#9cdcfe;">' + (e.detail || '') + '</span>'
+            + '</div>';
+    }
+
+    function refreshUnifiedLog() {
+        var $body = $('#sslab-log-body');
+        var filter = $('#sslab-log-filter').val() || 'all';
+
+        // 先渲染操作日志
+        var opLog = window._opLog || [];
+        var filteredOps = filter === 'all' ? opLog : opLog.filter(function(e) { return e.status === filter; });
+        var opRows = filteredOps.map(renderOpLogEntry);
+
+        // 尝试获取RS485日志并合并
+        API.getRS485Log(20).then(function(res) {
+            var rsRows = [];
+            if (res.ok && res.data && res.data.log && res.data.log.length) {
+                rsRows = res.data.log.map(function(e) {
+                    var color = e.ok ? '#4ec94e' : '#f44747';
+                    var tag = e.tag || '?';
+                    var statIcon = e.ok ? '✓' : '✗';
+                    var statStr = e.ok ? 'ok' : 'err';
+                    var opEntry = {
+                        ts: e.ts || '',
+                        action: 'RS485:' + tag,
+                        detail: (e.ms||0) + 'ms TX:' + (e.tx||'').substring(0,30) + (e.error?' ERR:'+(e.error||'').substring(0,20):''),
+                        status: statStr
+                    };
+                    if (filter === 'all' || filter === statStr) {
+                        return renderOpLogEntry(opEntry);
+                    }
+                    return null;
+                }).filter(Boolean);
+            }
+
+            var allRows = opRows.concat(rsRows);
+            if (!allRows.length) {
+                $body.html('<div style="color:#888;text-align:center;padding:10px;">暂无匹配记录</div>');
+            } else {
+                $body.html(allRows.join(''));
+            }
+        }).catch(function() {
+            // RS485日志不可用，只显示操作日志
+            if (!opRows.length) {
+                $body.html('<div style="color:#888;text-align:center;padding:10px;">暂无操作记录</div>');
+            } else {
+                $body.html(opRows.join(''));
+            }
         });
     }
 
@@ -353,16 +444,19 @@
 
         $btn.on('click', function() {
             $btn.prop('disabled', true).text('…');
+            try { window.logOperation && window.logOperation('设备扫描', '网络扫描', 'pending'); } catch(_) {}
             API.scan('1053', false).then(function(res) {
                 $btn.prop('disabled', false).text('扫描');
                 if (res.ok && res.data) {
                     var cnt = res.data.count || 0;
                     showToast('扫描完成，发现 ' + cnt + ' 台设备', 'success');
+                    try { window.logOperation && window.logOperation('设备扫描', '发现' + cnt + '台', 'ok'); } catch(_) {}
                     if (res.data.devices && typeof parseAndRender === 'function') {
                         parseAndRender(res.data.devices);
                     }
                 } else {
                     showToast('扫描失败：' + res.error, 'error');
+                    try { window.logOperation && window.logOperation('设备扫描', '失败', 'err'); } catch(_) {}
                 }
             });
         });
@@ -394,8 +488,7 @@
     $(function() {
         initLiftingPanel();
         initVFDPanel();
-        initRS485LogPanel();
-        initScanButton();
+        initUnifiedLogPanel();
         initWsBanner();
         startStatePolling();
 

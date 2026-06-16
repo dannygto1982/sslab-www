@@ -18,6 +18,7 @@ from fastapi.responses import JSONResponse
 from app.devices import DeviceProtocol
 from app.protocol_485 import (
     build_computer_frame,
+    build_lamp_frame,
     build_lifting_frame,
     build_lowxstb_frame,
     build_vfd_power_frame,
@@ -298,11 +299,62 @@ async def handle_vfd(
 
 
 # ─────────────────────────────────────────────
+# Lamp (RS485 primary, TCP 1053 fallback) — same bus as Computer/Lifting
+# ─────────────────────────────────────────────
+
+async def handle_lamp(
+    device_id: str,
+    val: Any,
+    current_state: Dict[str, Any],
+    rs485_cfg: Dict[str, Any],
+    queue_manager,
+    rs485_manager,
+) -> Optional[JSONResponse]:
+    cmd = build_lamp_frame(_parse_bool(val))
+
+    rs485_on = bool(rs485_cfg.get("enabled", False))
+    legacy_on = bool(rs485_cfg.get("legacy_1053_enabled", False))
+
+    if rs485_on:
+        result = await rs485_manager.send_frame(
+            cmd,
+            expect_response=bool(rs485_cfg.get("expect_response", False)),
+            response_timeout=float(rs485_cfg.get("timeout", 0.25)),
+            retries=int(rs485_cfg.get("retries", 2)),
+            tag=device_id,
+        )
+        if not result.get("ok") and not legacy_on:
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "status": "error",
+                    "message": result.get("error", "rs485 send failed"),
+                    "state": current_state,
+                },
+            )
+
+    if legacy_on or not rs485_on:
+        # Fallback: broadcast via legacy TCP 1053
+        fixed = rs485_cfg.get("fixed_ips", {})
+        subnet = fixed.get("legacy_1053_subnet", "192.168.0")
+        r_start = fixed.get("legacy_1053_range_start", 100)
+        r_end = fixed.get("legacy_1053_range_end", 130)
+        target_ips = [f"{subnet}.{i}" for i in range(r_start, r_end + 1)]
+        for _ in range(2):
+            for ip in target_ips:
+                await queue_manager.add_task(ip, 1053, cmd)
+        print(f"[FALLBACK_1053] {device_id} sent to 31 IPs x2")
+
+    return None
+
+
+# ─────────────────────────────────────────────
 # Dispatcher — maps device_id to handler
 # ─────────────────────────────────────────────
 
 _HANDLER_GROUPS = [
     (lambda did: did in ("Computer", "Lifting"), handle_computer_lifting),
+    (lambda did: did == "Lamp", handle_lamp),
     (lambda did: did in _GROUP_DEVICE_IDS, handle_group_switches),
     (lambda did: did in ("LowKZ", "LowDYSZ", "LowDLSZ", "LowDC_AC"), handle_teacher_power),
     (lambda did: did == "LowXSTB", handle_low_xstb),

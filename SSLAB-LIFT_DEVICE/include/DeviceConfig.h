@@ -15,6 +15,7 @@ struct DeviceSettings {
     String studentGroup = "GROUP_1"; // Added for protocol compliance
     String mqttHost = "192.168.0.110";
     uint16_t mqttPort = 1883;
+    bool mqttEnabled = false;   // disabled by default — enable in web config
     String mqttUsername;
     String mqttPassword;
     String otaPassword = "changemeOTA";
@@ -31,6 +32,7 @@ struct DeviceSettings {
     unsigned long telemetryIntervalMs = 10000;
     unsigned long heartbeatIntervalMs = 15000;
     unsigned long discoveryIntervalMs = 60000;
+    uint16_t liftTimeoutSec = 20;  // 升降自动停止时长，0=不自动停
     std::vector<WifiCredential> wifiList;
 };
 

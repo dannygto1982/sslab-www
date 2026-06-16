@@ -24,6 +24,15 @@ class RS485Manager:
         }
         self._last_error: str = ""
         self._txlog: deque = deque(maxlen=_MAX_LOG)
+        # Auto-redetect flag: set when port fails with an access/not-found error
+        self._needs_redetect: bool = False
+
+    @property
+    def needs_redetect(self) -> bool:
+        return self._needs_redetect
+
+    def clear_redetect(self) -> None:
+        self._needs_redetect = False
 
     # ------------------------------------------------------------------
     # Configuration
@@ -174,6 +183,16 @@ class RS485Manager:
             data = ser.read(256)
             return {"ok": True, "response": data.hex().upper() if data else ""}
         except Exception as e:
+            err_str = str(e).lower()
+            # Port not accessible → request automatic re-detection
+            _PORT_ERRS = (
+                "cannot open", "could not open", "access is denied",
+                "no such file", "filenotfound", "winerror 2", "winerror 5",
+                "permission denied", "device or resource busy",
+                "the system cannot find", "port not found",
+            )
+            if any(x in err_str for x in _PORT_ERRS):
+                self._needs_redetect = True
             return {"ok": False, "error": str(e)}
         finally:
             if ser is not None:
@@ -181,6 +200,89 @@ class RS485Manager:
                     ser.close()
                 except OSError:
                     pass  # Serial port close may fail if already disconnected
+
+
+    # ------------------------------------------------------------------
+    # COM Port Discovery
+    # ------------------------------------------------------------------
+    def list_ports(self):
+        """Return a list of available serial ports with description and hwid."""
+        try:
+            from serial.tools import list_ports  # type: ignore
+            ports = []
+            for p in sorted(list_ports.comports(), key=lambda x: x.device):
+                ports.append({
+                    "port": p.device,
+                    "description": p.description or "",
+                    "hwid": p.hwid or "",
+                })
+            return {"ok": True, "ports": ports}
+        except Exception as e:
+            return {"ok": False, "ports": [], "error": str(e)}
+
+    def auto_detect_port(self, baudrate: int = 9600, test_frame: bytes = b"",
+                          exclude: list = None) -> Dict[str, Any]:
+        """Scan all available COM ports and return the first one that opens
+        successfully at the given baud rate.  Ports in the *exclude* list and
+        ports matching Bluetooth patterns are skipped automatically.
+
+        A lifting 'stop' frame is sent as a no-op probe; we only check that the
+        port opens without raising SerialException.
+        """
+        try:
+            import serial  # type: ignore
+            from serial.tools import list_ports  # type: ignore
+        except Exception as e:
+            return {"ok": False, "error": f"pyserial not available: {e}", "port": None}
+
+        # Build a safe test frame if caller didn't provide one
+        if not test_frame:
+            try:
+                from app.protocol_485 import build_lifting_frame
+                test_frame = build_lifting_frame("stop")
+            except Exception:
+                test_frame = b""
+
+        # Skip-patterns: lowercase substrings in description or hwid
+        _SKIP = ("bluetooth", "bth")
+        _EXCL = {e.upper() for e in (exclude or [])}
+
+        candidates = sorted(list_ports.comports(), key=lambda x: x.device)
+        tried = []
+        for p in candidates:
+            # Exclusion list (e.g. COM5=Android monitor, COM16=firmware DL)
+            if p.device.upper() in _EXCL:
+                tried.append({"port": p.device, "skipped": True, "reason": "excluded"})
+                continue
+            desc_lower = (p.description or "").lower()
+            hwid_lower = (p.hwid or "").lower()
+            if any(s in desc_lower or s in hwid_lower for s in _SKIP):
+                tried.append({"port": p.device, "skipped": True, "reason": "bluetooth"})
+                continue
+            try:
+                ser = serial.Serial(
+                    port=p.device,
+                    baudrate=baudrate,
+                    bytesize=8,
+                    parity=serial.PARITY_NONE,
+                    stopbits=serial.STOPBITS_ONE,
+                    timeout=0.2,
+                    write_timeout=0.2,
+                )
+                if test_frame:
+                    ser.reset_input_buffer()
+                    ser.write(test_frame)
+                    ser.flush()
+                ser.close()
+                tried.append({"port": p.device, "skipped": False, "ok": True})
+                return {"ok": True, "port": p.device, "tried": tried,
+                        "description": p.description or ""}
+            except Exception as ex:
+                tried.append({"port": p.device, "skipped": False, "ok": False, "error": str(ex)})
+                continue
+
+        return {"ok": False, "port": None, "tried": tried,
+                "error": "no suitable COM port found"}
 
 
 rs485_manager = RS485Manager()

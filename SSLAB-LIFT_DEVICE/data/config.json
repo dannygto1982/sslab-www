@@ -1,0 +1,25 @@
+{
+  "deviceId": "LD-DC4D",
+  "deviceType": "LIFT_DEVICE",
+  "classroomZone": "A1",
+  "studentGroup": "",
+  "mqttEnabled": true,
+  "mqttHost": "192.168.0.110",
+  "mqttPort": 1883,
+  "mqttUsername": "",
+  "mqttPassword": "",
+  "otaPassword": "changemeOTA",
+  "tcpServerHost": "192.168.0.110",
+  "tcpServerPort": 1053,
+  "controlIpStart": 100,
+  "controlIpEnd": 130,
+  "controlSendRounds": 2,
+  "controlBatchSize": 2,
+  "controlBatchIntervalMs": 50,
+  "telemetryIntervalMs": 30000,
+  "heartbeatIntervalMs": 60000,
+  "discoveryIntervalMs": 120000,
+  "wifi": [
+    { "ssid": "SSKJ-4G", "password": "xszn486020zcs" }
+  ]
+}

@@ -6,8 +6,15 @@
 # 用法：  .\docs\adb_e2e_test.ps1
 # =============================================================================
 
-$ADB    = "C:\Users\danny\AppData\Local\Android\Sdk\platform-tools\adb.exe"
-$DEV    = "192.168.0.106:45149"
+$ADB    = (Get-Command "adb" -ErrorAction SilentlyContinue)?.Source
+if (-not $ADB) {
+    foreach ($p in @("$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe",
+                     "C:\Users\danny\AppData\Local\Android\Sdk\platform-tools\adb.exe")) {
+        if (Test-Path $p) { $ADB = $p; break }
+    }
+}
+if (-not $ADB) { Write-Host "[ERROR] adb not found" -ForegroundColor Red; exit 1 }
+$DEV    = "192.168.0.106:33967"
 $API    = "http://localhost:1880"
 $PASS   = 0    # 通过计数
 $FAIL   = 0    # 失败计数

@@ -99,6 +99,19 @@
             body.bool = !!(isBool ? value : (num !== undefined ? (num !== 0) : !!value));
             body.text = isBool ? (value ? 'on' : 'off') : String(value);
             return request('POST', '/' + domain + '/' + deviceId, body, { timeout: 8000, retries: 1 });
+        },
+
+        /** GET /api/rs485/ports — 列出本机所有可用 COM 口 */
+        rs485Ports: function() {
+            return request('GET', '/api/rs485/ports', null, { timeout: 8000 });
+        },
+
+        /** POST /api/rs485/autodetect — 自动检测 RS485 COM 口并写入配置
+         *  @param {string[]} exclude  排除的端口列表，如 ['COM5','COM16']
+         */
+        rs485Autodetect: function(exclude) {
+            var body = { exclude: exclude || [] };
+            return request('POST', '/api/rs485/autodetect', body, { timeout: 15000 });
         }
     };
 
